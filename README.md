@@ -1003,7 +1003,7 @@ The idea is simple:
 
 # 👨‍💻 Developer
 
-## Arun Reddy
+## Arun
 
 Built as an AI-focused prototype for exploring:
 
