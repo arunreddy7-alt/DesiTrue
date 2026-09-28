@@ -60,3 +60,35 @@ def get_customer(
         )
 
     return customer
+
+
+@router.patch("/{customer_id}", response_model=CustomerResponse)
+def update_customer(
+    customer_id: int,
+    customer_data: CustomerCreate,
+    db: Session = Depends(get_db),
+):
+    customer = (
+        db.query(Customer)
+        .filter(Customer.id == customer_id)
+        .first()
+    )
+
+    if not customer:
+        raise HTTPException(
+            status_code=404,
+            detail="Customer not found.",
+        )
+
+    if customer_data.name is not None:
+        customer.name = customer_data.name
+
+    if customer_data.phone is not None:
+        customer.phone = customer_data.phone
+
+    customer.whatsapp_opt_in = customer_data.whatsapp_opt_in
+
+    db.commit()
+    db.refresh(customer)
+
+    return customer

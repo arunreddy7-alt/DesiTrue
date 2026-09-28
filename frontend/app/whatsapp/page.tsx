@@ -5,17 +5,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 type WhatsAppMessage = {
   id: number;
   customer_id: number;
-  order_id: number;
+  order_id: number | null;
   phone: string;
   message_type: string;
   message: string;
+  media_url: string | null;
   status: string;
   created_at: string;
 };
 
 type Conversation = {
   customerId: number;
-  orderId: number;
+  orderId: number | null;
   phone: string;
   messages: WhatsAppMessage[];
 };
@@ -33,12 +34,6 @@ export default function WhatsAppPage() {
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  /*
-   * Keep the currently selected conversation in a ref.
-   *
-   * This prevents polling from accidentally changing
-   * which conversation the user is viewing.
-   */
   const selectedConversationRef = useRef<string | null>(null);
 
   const selectConversation = (key: string) => {
@@ -47,7 +42,7 @@ export default function WhatsAppPage() {
   };
 
   /*
-   * Fetch all messages.
+   * Fetch all WhatsApp messages
    */
   const fetchMessages = useCallback(async () => {
     try {
@@ -66,10 +61,6 @@ export default function WhatsAppPage() {
 
       setMessages(data);
 
-      /*
-       * Only select a conversation automatically when
-       * absolutely nothing has been selected yet.
-       */
       if (
         data.length > 0 &&
         selectedConversationRef.current === null
@@ -77,23 +68,20 @@ export default function WhatsAppPage() {
         const firstMessage = data[0];
 
         const firstKey =
-          `${firstMessage.customer_id}-${firstMessage.order_id}`;
+          `${firstMessage.customer_id}-${firstMessage.order_id ?? "general"}`;
 
         selectedConversationRef.current = firstKey;
         setSelectedConversation(firstKey);
       }
     } catch (error) {
-      console.error(
-        "WhatsApp messages error:",
-        error
-      );
+      console.error("WhatsApp messages error:", error);
     } finally {
       setLoading(false);
     }
   }, []);
 
   /*
-   * Initial load + polling.
+   * Initial load + polling
    */
   useEffect(() => {
     fetchMessages();
@@ -108,17 +96,14 @@ export default function WhatsAppPage() {
   }, [fetchMessages]);
 
   /*
-   * Build conversations from messages.
-   *
-   * This is derived data only. It does NOT modify the
-   * selected conversation.
+   * Build conversations
    */
   const conversations = useMemo<Conversation[]>(() => {
     const map = new Map<string, Conversation>();
 
     for (const message of messages) {
       const key =
-        `${message.customer_id}-${message.order_id}`;
+        `${message.customer_id}-${message.order_id ?? "general"}`;
 
       if (!map.has(key)) {
         map.set(key, {
@@ -134,10 +119,6 @@ export default function WhatsAppPage() {
 
     const result = Array.from(map.values());
 
-    /*
-     * Keep the conversation ordering stable based on the
-     * most recent message.
-     */
     result.sort((a, b) => {
       const aLast =
         a.messages[a.messages.length - 1];
@@ -155,7 +136,7 @@ export default function WhatsAppPage() {
   }, [messages]);
 
   /*
-   * Find the currently selected conversation.
+   * Active conversation
    */
   const activeConversation = useMemo(() => {
     if (!selectedConversation) {
@@ -165,17 +146,14 @@ export default function WhatsAppPage() {
     return (
       conversations.find(
         (conversation) =>
-          `${conversation.customerId}-${conversation.orderId}` ===
+          `${conversation.customerId}-${conversation.orderId ?? "general"}` ===
           selectedConversation
       ) ?? null
     );
   }, [conversations, selectedConversation]);
 
   /*
-   * Scroll to bottom ONLY when a new message is added.
-   *
-   * We do not scroll when the user is simply typing or
-   * interacting with the page.
+   * Scroll to newest message
    */
   const previousMessageCount = useRef(0);
 
@@ -197,7 +175,7 @@ export default function WhatsAppPage() {
   }, [activeConversation]);
 
   /*
-   * Send customer message.
+   * Send customer message
    */
   const sendMessage = async () => {
     const trimmedMessage = messageText.trim();
@@ -241,19 +219,11 @@ export default function WhatsAppPage() {
         );
       }
 
-      /*
-       * Clear input only.
-       *
-       * We DO NOT touch selectedConversation.
-       */
       setMessageText("");
 
       await fetchMessages();
     } catch (error) {
-      console.error(
-        "Send message error:",
-        error
-      );
+      console.error("Send message error:", error);
 
       alert(
         error instanceof Error
@@ -306,6 +276,24 @@ export default function WhatsAppPage() {
       message.message_type ===
       "customer_reply"
     );
+  };
+
+  /*
+   * Resolve media URL from backend
+   */
+  const getMediaUrl = (
+    mediaUrl: string | null
+  ) => {
+    if (!mediaUrl) {
+      return null;
+    }
+
+    if (mediaUrl.startsWith("http://") ||
+        mediaUrl.startsWith("https://")) {
+      return mediaUrl;
+    }
+
+    return `${API_URL}${mediaUrl}`;
   };
 
   return (
@@ -376,7 +364,7 @@ export default function WhatsAppPage() {
                 (conversation) => {
 
                   const key =
-                    `${conversation.customerId}-${conversation.orderId}`;
+                    `${conversation.customerId}-${conversation.orderId ?? "general"}`;
 
                   const isActive =
                     selectedConversation === key;
@@ -426,8 +414,9 @@ export default function WhatsAppPage() {
                           <div className="flex items-center justify-between mt-1">
 
                             <p className="text-xs text-gray-500">
-                              Order #
-                              {conversation.orderId}
+                              {conversation.orderId
+                                ? `Order #${conversation.orderId}`
+                                : "Campaign"}
                             </p>
 
                             <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
@@ -490,6 +479,7 @@ export default function WhatsAppPage() {
             </div>
           ) : (
             <>
+
               {/* Chat header */}
               <header className="bg-[#075e54] text-white px-5 py-3 flex items-center gap-3 flex-shrink-0">
 
@@ -507,9 +497,12 @@ export default function WhatsAppPage() {
                   <p className="text-xs text-green-100">
                     {activeConversation.phone ||
                       "No phone number"}
+
                     {" • "}
-                    Order #
-                    {activeConversation.orderId}
+
+                    {activeConversation.orderId
+                      ? `Order #${activeConversation.orderId}`
+                      : "Campaign"}
                   </p>
 
                 </div>
@@ -530,9 +523,12 @@ export default function WhatsAppPage() {
                     <br />
                     Customer #
                     {activeConversation.customerId}
+
                     {" • "}
-                    Order #
-                    {activeConversation.orderId}
+
+                    {activeConversation.orderId
+                      ? `Order #${activeConversation.orderId}`
+                      : "Campaign"}
                   </div>
 
                 </div>
@@ -545,6 +541,15 @@ export default function WhatsAppPage() {
                       const customerMessage =
                         isCustomerMessage(message);
 
+                      const mediaUrl =
+                        getMediaUrl(
+                          message.media_url
+                        );
+
+                      const isCampaign =
+                        message.message_type ===
+                        "campaign";
+
                       return (
                         <div
                           key={message.id}
@@ -556,42 +561,69 @@ export default function WhatsAppPage() {
                         >
 
                           <div
-                            className={`max-w-[75%] rounded-lg px-3 py-2 shadow-sm ${
+                            className={`max-w-[75%] rounded-lg overflow-hidden shadow-sm ${
                               customerMessage
                                 ? "bg-white"
                                 : "bg-[#d9fdd3]"
                             }`}
                           >
 
-                            <p className="text-[10px] font-semibold text-gray-500 mb-1">
-                              {customerMessage
-                                ? "Customer"
-                                : "DesiTrue"}
-                            </p>
+                            {/* Campaign image */}
+                            {mediaUrl && (
+                              <div className="bg-gray-100">
 
-                            <p className="text-sm text-gray-800 whitespace-pre-line leading-relaxed">
-                              {message.message}
-                            </p>
+                                <img
+                                  src={mediaUrl}
+                                  alt={
+                                    isCampaign
+                                      ? "DesiTrue campaign"
+                                      : "WhatsApp media"
+                                  }
+                                  className="w-full max-h-[360px] object-cover"
+                                  onError={(event) => {
+                                    event.currentTarget.style.display =
+                                      "none";
+                                  }}
+                                />
 
-                            <div
-                              className={`flex items-center gap-1 mt-1 ${
-                                customerMessage
-                                  ? "justify-start"
-                                  : "justify-end"
-                              }`}
-                            >
+                              </div>
+                            )}
 
-                              <span className="text-[10px] text-gray-500">
-                                {formatTime(
-                                  message.created_at
-                                )}
-                              </span>
+                            <div className="px-3 py-2">
 
-                              {!customerMessage && (
-                                <span className="text-xs text-blue-500">
-                                  ✓✓
+                              <p className="text-[10px] font-semibold text-gray-500 mb-1">
+                                {customerMessage
+                                  ? "Customer"
+                                  : isCampaign
+                                  ? "DesiTrue • Campaign"
+                                  : "DesiTrue"}
+                              </p>
+
+                              <p className="text-sm text-gray-800 whitespace-pre-line leading-relaxed">
+                                {message.message}
+                              </p>
+
+                              <div
+                                className={`flex items-center gap-1 mt-1 ${
+                                  customerMessage
+                                    ? "justify-start"
+                                    : "justify-end"
+                                }`}
+                              >
+
+                                <span className="text-[10px] text-gray-500">
+                                  {formatTime(
+                                    message.created_at
+                                  )}
                                 </span>
-                              )}
+
+                                {!customerMessage && (
+                                  <span className="text-xs text-blue-500">
+                                    ✓✓
+                                  </span>
+                                )}
+
+                              </div>
 
                             </div>
 
@@ -646,6 +678,7 @@ export default function WhatsAppPage() {
                 </p>
 
               </div>
+
             </>
           )}
 

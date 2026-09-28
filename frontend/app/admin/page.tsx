@@ -247,6 +247,10 @@ export default function AdminPage() {
     );
   };
 
+  // =========================================================
+  // PAGE
+  // =========================================================
+
   return (
     <main className="min-h-screen bg-gray-100">
 
@@ -293,6 +297,17 @@ export default function AdminPage() {
                 className="px-4 py-2 rounded-lg text-white border border-gray-700 text-sm font-medium hover:bg-gray-800 transition"
               >
                 Coupons
+              </button>
+
+              {/* CAMPAIGNS */}
+
+              <button
+                onClick={() => {
+                  window.location.href = "/admin/campaigns";
+                }}
+                className="rounded-lg border border-gray-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
+              >
+                Campaigns
               </button>
 
             </nav>
@@ -369,7 +384,9 @@ export default function AdminPage() {
                     className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden"
                   >
 
+                    {/* ================================================= */}
                     {/* ORDER HEADER */}
+                    {/* ================================================= */}
 
                     <div className="px-6 py-5 border-b border-gray-100 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 
@@ -418,7 +435,9 @@ export default function AdminPage() {
 
                     </div>
 
+                    {/* ================================================= */}
                     {/* PROGRESS */}
+                    {/* ================================================= */}
 
                     <div className="px-6 py-5 border-b border-gray-100">
 
@@ -459,6 +478,7 @@ export default function AdminPage() {
 
                                 {index <
                                   statusSteps.length - 1 && (
+
                                   <div
                                     className={`h-1 flex-1 mx-2 rounded ${
                                       currentIndex > index
@@ -466,6 +486,7 @@ export default function AdminPage() {
                                         : "bg-gray-200"
                                     }`}
                                   />
+
                                 )}
 
                               </div>
@@ -478,7 +499,9 @@ export default function AdminPage() {
 
                     </div>
 
+                    {/* ================================================= */}
                     {/* ORDER ITEMS */}
+                    {/* ================================================= */}
 
                     <div className="px-6 py-5">
 
@@ -518,121 +541,144 @@ export default function AdminPage() {
 
                     </div>
 
+                    {/* ================================================= */}
                     {/* CUSTOMER FEEDBACK */}
+                    {/* ================================================= */}
 
-                    {!feedbackLoading &&
-                      orderFeedback.length > 0 && (
+                    <div className="px-6 py-5 border-t border-gray-100">
 
-                        <div className="px-6 py-5 border-t border-gray-100">
+                      <div className="mb-4">
 
-                          <div className="mb-4">
+                        <h4 className="font-semibold text-gray-900">
+                          Customer Feedback
+                        </h4>
 
-                            <h4 className="font-semibold text-gray-900">
-                              Customer Feedback
-                            </h4>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Feedback and AI insights for this order
+                        </p>
 
-                            <p className="text-xs text-gray-500 mt-1">
-                              AI-analyzed feedback for this order
-                            </p>
+                      </div>
 
-                          </div>
+                      {feedbackLoading ? (
 
-                          <div className="space-y-4">
+                        <div className="bg-gray-50 rounded-xl border border-gray-200 p-4">
 
-                            {orderFeedback.map((item) => (
+                          <p className="text-sm text-gray-500">
+                            Loading feedback...
+                          </p>
 
-                              <div
-                                key={item.id}
-                                className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden"
-                              >
+                        </div>
 
-                                <div className="p-4">
+                      ) : orderFeedback.length === 0 ? (
 
-                                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                        <div className="bg-gray-50 rounded-xl border border-gray-200 p-4">
 
-                                    <div>
+                          <p className="text-sm text-gray-500">
+                            No feedback submitted for this order yet.
+                          </p>
 
-                                      <p className="text-xs text-gray-500 mb-1">
-                                        Rating
-                                      </p>
+                        </div>
 
-                                      <div className="flex items-center gap-2">
+                      ) : (
 
-                                        <span className="text-lg">
-                                          {"⭐".repeat(
-                                            item.rating
-                                          )}
-                                        </span>
+                        <div className="space-y-4">
 
-                                        <span className="text-sm font-medium text-gray-700">
-                                          {item.rating}/5
-                                        </span>
+                          {orderFeedback.map((item) => (
 
-                                      </div>
+                            <div
+                              key={item.id}
+                              className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden"
+                            >
+
+                              {/* FEEDBACK CONTENT */}
+
+                              <div className="p-4">
+
+                                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+
+                                  <div>
+
+                                    <p className="text-xs text-gray-500 mb-1">
+                                      Rating
+                                    </p>
+
+                                    <div className="flex items-center gap-2">
+
+                                      <span className="text-lg">
+                                        {"⭐".repeat(
+                                          item.rating
+                                        )}
+                                      </span>
+
+                                      <span className="text-sm font-medium text-gray-700">
+                                        {item.rating}/5
+                                      </span>
 
                                     </div>
 
-                                    <span
-                                      className={`px-3 py-1 rounded-full text-xs font-medium w-fit ${getSentimentStyle(
-                                        item.sentiment
-                                      )}`}
-                                    >
-                                      🤖{" "}
-                                      {getSentimentLabel(
-                                        item.sentiment
-                                      )}
-                                    </span>
-
                                   </div>
 
-                                  <div className="mt-4">
-
-                                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                                      Customer said
-                                    </p>
-
-                                    <p className="text-gray-800 leading-relaxed">
-                                      “{item.text}”
-                                    </p>
-
-                                  </div>
+                                  <span
+                                    className={`px-3 py-1 rounded-full text-xs font-medium w-fit ${getSentimentStyle(
+                                      item.sentiment
+                                    )}`}
+                                  >
+                                    🤖{" "}
+                                    {getSentimentLabel(
+                                      item.sentiment
+                                    )}
+                                  </span>
 
                                 </div>
 
-                                <div className="border-t border-gray-200 bg-white p-4">
+                                <div className="mt-4">
 
-                                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
-                                    AI Analysis
+                                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                                    Customer said
                                   </p>
 
-                                  <div className="grid md:grid-cols-2 gap-3">
+                                  <p className="text-gray-800 leading-relaxed">
+                                    “{item.text}”
+                                  </p>
 
-                                    <div className="rounded-lg bg-gray-50 p-3">
+                                </div>
 
-                                      <p className="text-xs text-gray-500">
-                                        Sentiment
-                                      </p>
+                              </div>
 
-                                      <p className="font-semibold text-gray-900 mt-1">
-                                        {getSentimentLabel(
-                                          item.sentiment
-                                        )}
-                                      </p>
+                              {/* AI ANALYSIS */}
 
-                                    </div>
+                              <div className="border-t border-gray-200 bg-white p-4">
 
-                                    <div className="rounded-lg bg-gray-50 p-3">
+                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
+                                  AI Analysis
+                                </p>
 
-                                      <p className="text-xs text-gray-500">
-                                        Detected Issue
-                                      </p>
+                                <div className="grid md:grid-cols-2 gap-3">
 
-                                      <p className="font-semibold text-gray-900 mt-1">
-                                        {item.issue ||
-                                          "No specific issue detected"}
-                                      </p>
+                                  <div className="rounded-lg bg-gray-50 p-3">
 
-                                    </div>
+                                    <p className="text-xs text-gray-500">
+                                      Sentiment
+                                    </p>
+
+                                    <p className="font-semibold text-gray-900 mt-1">
+                                      {getSentimentLabel(
+                                        item.sentiment
+                                      )}
+                                    </p>
+
+                                  </div>
+
+                                  <div className="rounded-lg bg-gray-50 p-3">
+
+                                    <p className="text-xs text-gray-500">
+                                      Detected Issue
+                                    </p>
+
+                                    <p className="font-semibold text-gray-900 mt-1">
+                                      {item.issue ||
+                                        "No specific issue detected"}
+                                    </p>
 
                                   </div>
 
@@ -640,15 +686,19 @@ export default function AdminPage() {
 
                               </div>
 
-                            ))}
+                            </div>
 
-                          </div>
+                          ))}
 
                         </div>
 
                       )}
 
+                    </div>
+
+                    {/* ================================================= */}
                     {/* ACTION */}
+                    {/* ================================================= */}
 
                     <div className="px-6 py-5 bg-gray-50 border-t border-gray-100">
 

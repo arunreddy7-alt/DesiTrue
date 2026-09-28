@@ -1,8 +1,14 @@
 from dotenv import load_dotenv
 
+from pathlib import Path
+
+from fastapi.staticfiles import StaticFiles
+
 load_dotenv()
 
 from fastapi import FastAPI
+
+from app.routers.campaigns import router as campaigns_router
 
 from app.routers.coupons import router as coupons_router
 
@@ -32,7 +38,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -45,6 +54,26 @@ app.include_router(customers_router)
 app.include_router(payments_router)
 app.include_router(whatsapp_router)
 app.include_router(coupons_router)
+app.include_router(campaigns_router)
+
+
+GENERATED_CAMPAIGNS_DIR = (
+    Path(__file__).resolve().parent.parent
+    / "generated_campaigns"
+)
+
+GENERATED_CAMPAIGNS_DIR.mkdir(
+    parents=True,
+    exist_ok=True,
+)
+
+app.mount(
+    "/generated-campaigns",
+    StaticFiles(
+        directory=GENERATED_CAMPAIGNS_DIR
+    ),
+    name="generated-campaigns",
+)
 
 @app.get("/")
 def root():

@@ -6,12 +6,17 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 
-class WhatsAppMessage(Base):
-    __tablename__ = "whatsapp_messages"
+class CampaignDelivery(Base):
+    __tablename__ = "campaign_deliveries"
 
     id: Mapped[int] = mapped_column(
         primary_key=True,
         index=True,
+    )
+
+    campaign_id: Mapped[int] = mapped_column(
+        ForeignKey("campaigns.id"),
+        nullable=False,
     )
 
     customer_id: Mapped[int] = mapped_column(
@@ -19,29 +24,10 @@ class WhatsAppMessage(Base):
         nullable=False,
     )
 
-    order_id: Mapped[int | None] = mapped_column(
-    ForeignKey("orders.id"),
-    nullable=True,
-)
-
-    phone: Mapped[str] = mapped_column(
-        String(20),
-        nullable=False,
-    )
-
-    message_type: Mapped[str] = mapped_column(
-        String(50),
-        nullable=False,
-    )
-
     message: Mapped[str] = mapped_column(
         Text,
         nullable=False,
     )
-    media_url: Mapped[str | None] = mapped_column(
-    String(500),
-    nullable=True,
-)
 
     status: Mapped[str] = mapped_column(
         String(30),
@@ -49,11 +35,20 @@ class WhatsAppMessage(Base):
         nullable=False,
     )
 
+    sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
     )
 
-    customer = relationship("Customer")
+    campaign = relationship(
+        "Campaign",
+    )
 
-    order = relationship("Order")
+    customer = relationship(
+        "Customer",
+    )

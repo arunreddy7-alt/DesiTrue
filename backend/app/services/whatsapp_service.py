@@ -132,3 +132,73 @@ def send_feedback_request_whatsapp(
         message_type="feedback_request",
         message=message,
     )
+def send_campaign_whatsapp(
+    db: Session,
+    customer: Customer,
+    campaign,
+):
+    """
+    Sends a campaign message through the WhatsApp simulator.
+
+    Includes:
+    - Campaign title
+    - Campaign message
+    - Coupon code
+    - Campaign image
+    """
+
+    if not customer.phone:
+        return None
+
+    if not customer.whatsapp_opt_in:
+        return None
+
+    # -----------------------------------------------------
+    # COUPON
+    # -----------------------------------------------------
+
+    coupon_code = None
+
+    if campaign.coupon_id and campaign.coupon:
+        coupon_code = campaign.coupon.code
+
+    # -----------------------------------------------------
+    # BUILD MESSAGE
+    # -----------------------------------------------------
+
+    message_parts = [
+        "🔥 DesiTrue",
+        "",
+        campaign.title,
+        "",
+        campaign.message,
+    ]
+
+    if coupon_code:
+        message_parts.extend(
+            [
+                "",
+                f"🎟️ Use code: {coupon_code}",
+            ]
+        )
+
+    message = "\n".join(message_parts)
+
+    # -----------------------------------------------------
+    # CREATE WHATSAPP MESSAGE
+    # -----------------------------------------------------
+
+    whatsapp_message = WhatsAppMessage(
+        customer_id=customer.id,
+        order_id=None,
+        phone=customer.phone,
+        message_type="campaign",
+        message=message,
+        media_url=campaign.image_url,
+        status="sent",
+    )
+
+    db.add(whatsapp_message)
+    db.flush()
+
+    return whatsapp_message
