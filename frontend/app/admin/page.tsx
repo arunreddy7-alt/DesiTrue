@@ -29,7 +29,7 @@ type Feedback = {
   created_at: string;
 };
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "http://localhost:8000";
 
 const statusSteps = [
   "confirmed",
@@ -371,8 +371,14 @@ export default function AdminPage() {
                 const nextStatus =
                   getNextStatus(order.status);
 
-                const orderFeedback =
-                  getOrderFeedback(order.id);
+                const orderFeedback = getOrderFeedback(order.id);
+
+                console.log(
+                  "ADMIN ORDER:",
+                  order.id,
+                  "MATCHED FEEDBACK:",
+                  orderFeedback
+                ) ;
 
                 const currentIndex =
                   statusSteps.indexOf(order.status);

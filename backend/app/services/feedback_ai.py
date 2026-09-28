@@ -1,92 +1,113 @@
 import json
-import time
+import os
 
 from google import genai
 
-from app.core.database import settings
+from app.services.feedback_fallback import analyze_feedback_local
 
 
-client = genai.Client(
-    api_key=settings.gemini_api_key
-)
+def analyze_feedback(feedback_text: str) -> dict:
+    """
+    Analyze customer feedback using Gemini.
 
+    Falls back to local keyword-based analysis
+    if Gemini is unavailable.
+    """
 
-PROMPT_TEMPLATE = """
-You are analyzing customer feedback for a food ordering application.
+    if not feedback_text or not feedback_text.strip():
+        return {
+            "sentiment": "neutral",
+            "issue": None,
+        }
 
-Analyze the feedback and return ONLY valid JSON.
+    api_key = os.getenv("GEMINI_API_KEY")
 
-Required JSON format:
+    # ---------------------------------------------------------
+    # LOCAL FALLBACK
+    # ---------------------------------------------------------
+
+    if not api_key:
+        return analyze_feedback_local(
+            feedback_text
+        )
+
+    try:
+        client = genai.Client(
+            api_key=api_key
+        )
+
+        prompt = f"""
+Analyze the following customer feedback.
+
+Return ONLY valid JSON.
+
+Required format:
+
 {{
-  "sentiment": "positive | neutral | negative",
-  "issue": "string or null"
+    "sentiment": "positive",
+    "issue": null
 }}
 
 Rules:
-- sentiment must be exactly one of: positive, neutral, negative
-- issue should describe the main problem if one exists
-- if there is no specific issue, return null
-- do not include markdown
-- do not include explanations
+
+1. sentiment must be exactly one of:
+   - positive
+   - negative
+   - neutral
+
+2. issue:
+   - Extract the main complaint/problem if one exists.
+   - If there is no clear problem, use null.
 
 Customer feedback:
-{feedback}
+
+"{feedback_text}"
 """
 
-def analyze_feedback(text: str) -> dict:
-    prompt = PROMPT_TEMPLATE.format(feedback=text)
+        response = client.models.generate_content(
+            model="gemini-3.5-flash-lite",
+            contents=prompt,
+        )
 
-    models = [
-        "gemini-3.8-flash",
-    ]
+        text = response.text.strip()
 
-    last_error = None
+        # Remove markdown code fences if Gemini adds them
+        if text.startswith("```"):
+            text = text.replace("```json", "")
+            text = text.replace("```", "")
+            text = text.strip()
 
-    for model in models:
-        for attempt in range(3):
-            try:
-                response = client.models.generate_content(
-                    model=model,
-                    contents=prompt,
-                )
+        result = json.loads(text)
 
-                result = response.text.strip()
+        sentiment = str(
+            result.get("sentiment", "neutral")
+        ).lower().strip()
 
-                # Remove accidental markdown fences
-                if result.startswith("```"):
-                    result = result.replace("```json", "")
-                    result = result.replace("```", "")
-                    result = result.strip()
+        if sentiment not in {
+            "positive",
+            "negative",
+            "neutral",
+        }:
+            sentiment = "neutral"
 
-                analysis = json.loads(result)
+        issue = result.get("issue")
 
-                sentiment = analysis.get("sentiment")
-                issue = analysis.get("issue")
+        if issue:
+            issue = str(issue).strip()
+        else:
+            issue = None
 
-                if sentiment not in {
-                    "positive",
-                    "neutral",
-                    "negative",
-                }:
-                    raise ValueError(
-                        "AI returned an invalid sentiment."
-                    )
+        return {
+            "sentiment": sentiment,
+            "issue": issue,
+        }
 
-                return {
-                    "sentiment": sentiment,
-                    "issue": issue,
-                }
+    except Exception as error:
+        print(
+            f"Feedback AI analysis failed: {error}"
+        )
 
-            except Exception as error:
-                last_error = error
-
-                # Retry temporary provider failures.
-                if "503" in str(error) or "UNAVAILABLE" in str(error):
-                    time.sleep(2 * (attempt + 1))
-                    continue
-
-                raise
-
-    raise RuntimeError(
-        f"AI service unavailable after retries: {last_error}"
-    )
+        # Gemini failed → use local analysis
+        return analyze_feedback_local(
+            feedback_text
+        )

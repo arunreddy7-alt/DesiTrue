@@ -21,7 +21,7 @@ type Conversation = {
   messages: WhatsAppMessage[];
 };
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "http://localhost:8000";
 
 export default function WhatsAppPage() {
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);

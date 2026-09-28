@@ -3,6 +3,7 @@ import re
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from app.services.feedback_automation import run_feedback_automation
 
 from app.core.database import get_db
 from app.models import Customer, Order, WhatsAppMessage, Feedback
@@ -22,6 +23,205 @@ class WhatsAppMessageCreate(BaseModel):
 
 
 # =========================================================
+# HELPER: EXTRACT RATING FROM WHATSAPP MESSAGE
+# =========================================================
+
+def extract_rating(text: str) -> int | None:
+    """
+    Extract a customer rating from natural WhatsApp messages.
+
+    Supported examples:
+
+    4/5
+    4 out of 5
+    4 outta 5
+    rate it 4
+    rate 4
+    rating 4
+    i would rate it 4
+    i would rate 4
+    i would give it 4
+    i give it 4
+    """
+
+    text_lower = text.lower().strip()
+
+    # -----------------------------------------------------
+    # Format 1:
+    #
+    # 4/5
+    # 4 out of 5
+    # 4 outta 5
+    # -----------------------------------------------------
+
+    rating_match = re.search(
+        r"\b([1-5])\s*(?:/|out\s+of|outta)\s*5\b",
+        text_lower,
+    )
+
+    if rating_match:
+        return int(rating_match.group(1))
+
+    # -----------------------------------------------------
+    # Format 2:
+    #
+    # rate it 4
+    # rate 4
+    # rated it 4
+    # rated 4
+    # rating 4
+    # -----------------------------------------------------
+
+    rating_match = re.search(
+        r"\b(?:rate|rated|rating)\s+"
+        r"(?:it\s+)?"
+        r"(?:is\s+|was\s+)?"
+        r"([1-5])\b",
+        text_lower,
+    )
+
+    if rating_match:
+        return int(rating_match.group(1))
+
+    # -----------------------------------------------------
+    # Format 3:
+    #
+    # i would rate it 4
+    # i would rate 4
+    # i would give it 4
+    # i give it 4
+    # -----------------------------------------------------
+
+    rating_match = re.search(
+        r"\b(?:i\s+)?"
+        r"(?:would\s+)?"
+        r"(?:rate|give)\s+"
+        r"(?:it\s+)?"
+        r"(?:a\s+)?"
+        r"([1-5])\b",
+        text_lower,
+    )
+
+    if rating_match:
+        return int(rating_match.group(1))
+
+    return None
+
+
+# =========================================================
+# HELPER: REMOVE RATING PHRASE FROM FEEDBACK TEXT
+# =========================================================
+
+def clean_feedback_text(text: str) -> str:
+    """
+    Removes rating phrases from the customer's message
+    while keeping the actual feedback text.
+    """
+
+    feedback_text = text.strip()
+
+    # -----------------------------------------------------
+    # Remove:
+    #
+    # 4/5
+    # 4 out of 5
+    # 4 outta 5
+    # -----------------------------------------------------
+
+    feedback_text = re.sub(
+        r"\b[1-5]\s*(?:/|out\s+of|outta)\s*5\b",
+        "",
+        feedback_text,
+        flags=re.IGNORECASE,
+    )
+
+    # -----------------------------------------------------
+    # Remove:
+    #
+    # i would rate it 4
+    # i would rate 4
+    # rate it 4
+    # rate 4
+    # rated it 4
+    # rating 4
+    # -----------------------------------------------------
+
+    feedback_text = re.sub(
+        r"\b(?:i\s+)?(?:would\s+)?"
+        r"(?:rate|rated|rating)\s+"
+        r"(?:it\s+)?"
+        r"(?:is\s+|was\s+)?"
+        r"[1-5]\b",
+        "",
+        feedback_text,
+        flags=re.IGNORECASE,
+    )
+
+    # -----------------------------------------------------
+    # Remove:
+    #
+    # i would give it 4
+    # i give it 4
+    # give it 4
+    # -----------------------------------------------------
+
+    feedback_text = re.sub(
+        r"\b(?:i\s+)?(?:would\s+)?"
+        r"give\s+"
+        r"(?:it\s+)?"
+        r"(?:a\s+)?"
+        r"[1-5]\b",
+        "",
+        feedback_text,
+        flags=re.IGNORECASE,
+    )
+
+    # -----------------------------------------------------
+    # Remove common leftover rating phrases
+    # -----------------------------------------------------
+
+    feedback_text = re.sub(
+        r"\bi\s+would\s+rate\b",
+        "",
+        feedback_text,
+        flags=re.IGNORECASE,
+    )
+
+    feedback_text = re.sub(
+        r"\bi'd\s+rate\b",
+        "",
+        feedback_text,
+        flags=re.IGNORECASE,
+    )
+
+    feedback_text = re.sub(
+        r"\bi\s+would\s+give\b",
+        "",
+        feedback_text,
+        flags=re.IGNORECASE,
+    )
+
+    # -----------------------------------------------------
+    # Clean leftover connectors
+    # -----------------------------------------------------
+
+    feedback_text = re.sub(
+        r"^(and|but|because|so|that|then)\s+",
+        "",
+        feedback_text,
+        flags=re.IGNORECASE,
+    ).strip()
+
+    feedback_text = re.sub(
+        r"\s+",
+        " ",
+        feedback_text,
+    ).strip()
+
+    return feedback_text
+
+
+# =========================================================
 # HELPER: PROCESS WHATSAPP FEEDBACK
 # =========================================================
 
@@ -31,7 +231,18 @@ def process_feedback_message(
 ):
     """
     Converts a WhatsApp customer reply containing a rating
-    into Feedback and runs Gemini analysis.
+    into Feedback and runs AI analysis.
+
+    Supports natural rating formats such as:
+
+    4/5
+    4 out of 5
+    4 outta 5
+    rate it 4
+    rate 4
+    rating 4
+    i would rate it 4
+    i would give it 4
 
     Returns None when the message does not contain
     a recognizable rating.
@@ -43,15 +254,10 @@ def process_feedback_message(
     # Detect rating
     # -----------------------------------------------------
 
-    rating_match = re.search(
-        r"\b([1-5])\s*(?:/|out\s+of|outta)\s*5\b",
-        text.lower(),
-    )
+    rating = extract_rating(text)
 
-    if not rating_match:
+    if rating is None:
         return None
-
-    rating = int(rating_match.group(1))
 
     # -----------------------------------------------------
     # Check for existing feedback
@@ -74,34 +280,7 @@ def process_feedback_message(
         # Extract feedback text
         # -------------------------------------------------
 
-        feedback_text = re.sub(
-            r"\b[1-5]\s*(?:/|out\s+of|outta)\s*5\b",
-            "",
-            text,
-            flags=re.IGNORECASE,
-        ).strip()
-
-        # Remove common rating phrases
-        feedback_text = re.sub(
-            r"\bi\s+would\s+rate\b",
-            "",
-            feedback_text,
-            flags=re.IGNORECASE,
-        ).strip()
-
-        feedback_text = re.sub(
-            r"\bi'd\s+rate\b",
-            "",
-            feedback_text,
-            flags=re.IGNORECASE,
-        ).strip()
-
-        feedback_text = re.sub(
-            r"^(and|but|because|so)\s+",
-            "",
-            feedback_text,
-            flags=re.IGNORECASE,
-        ).strip()
+        feedback_text = clean_feedback_text(text)
 
         if not feedback_text:
             feedback_text = text
@@ -118,7 +297,7 @@ def process_feedback_message(
         db.refresh(feedback)
 
     # -----------------------------------------------------
-    # Gemini analysis
+    # Gemini / local AI analysis
     # -----------------------------------------------------
 
     if not feedback.sentiment:
@@ -133,6 +312,10 @@ def process_feedback_message(
 
             db.commit()
             db.refresh(feedback)
+            automation_result = run_feedback_automation(
+            feedback=feedback,
+            db=db,
+                )
 
         except Exception as error:
             print(
@@ -141,15 +324,17 @@ def process_feedback_message(
 
             # Feedback itself is already stored.
             # We don't fail the WhatsApp message because
-            # Gemini temporarily failed.
+            # AI analysis temporarily failed.
+
             return {
-                "feedback_id": feedback.id,
-                "rating": feedback.rating,
-                "text": feedback.text,
-                "sentiment": None,
-                "issue": None,
-                "ai_analysis_failed": True,
-            }
+    "feedback_id": feedback.id,
+    "rating": feedback.rating,
+    "text": feedback.text,
+    "sentiment": feedback.sentiment,
+    "issue": feedback.issue,
+    "ai_analysis_failed": False,
+    "automation": automation_result,
+}
 
     return {
         "feedback_id": feedback.id,
@@ -276,12 +461,7 @@ def create_incoming_whatsapp_message(
     """
     Simulates a customer sending a WhatsApp message.
 
-    If the message contains a rating such as:
-
-        4/5
-        4 out of 5
-        4 outta 5
-
+    If the message contains a recognizable rating,
     the feedback pipeline automatically runs.
     """
 
@@ -366,6 +546,7 @@ def create_incoming_whatsapp_message(
 
     # Only include feedback when the message
     # actually looked like feedback.
+
     if feedback_result is not None:
         response["feedback"] = feedback_result
 
@@ -420,7 +601,7 @@ def process_whatsapp_feedback(
             detail=(
                 "No rating detected in this message. "
                 "Please include a rating such as "
-                "4/5 or 4 out of 5."
+                "4/5, 4 out of 5, or rate it 4."
             ),
         )
 

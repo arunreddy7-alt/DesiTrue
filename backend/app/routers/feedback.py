@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.services.feedback_ai import analyze_feedback
+from app.services.feedback_automation import run_feedback_automation
 from app.core.database import get_db
 from app.models import Feedback
 from app.schemas.feedback import FeedbackCreate, FeedbackResponse
@@ -78,13 +79,10 @@ def get_feedback(
 
 
 # =========================================================
-# ANALYZE FEEDBACK
+# ANALYZE FEEDBACK + RUN AUTOMATION
 # =========================================================
 
-@router.post(
-    "/{feedback_id}/analyze",
-    response_model=FeedbackResponse,
-)
+@router.post("/{feedback_id}/analyze")
 def analyze_feedback_endpoint(
     feedback_id: int,
     db: Session = Depends(get_db),
@@ -101,44 +99,30 @@ def analyze_feedback_endpoint(
             detail="Feedback not found.",
         )
 
-    try:
-        analysis = analyze_feedback(
-            feedback.text
-        )
+    # ---------------------------------------------------------
+    # AI ANALYSIS
+    # ---------------------------------------------------------
 
-        sentiment = analysis.get("sentiment")
-        issue = analysis.get("issue")
+    analysis = analyze_feedback(
+        feedback.text
+    )
 
-        allowed_sentiments = {
-            "positive",
-            "neutral",
-            "negative",
-        }
+    feedback.sentiment = analysis["sentiment"]
+    feedback.issue = analysis["issue"]
 
-        if sentiment not in allowed_sentiments:
-            raise ValueError(
-                "AI returned an invalid sentiment."
-            )
+    db.commit()
+    db.refresh(feedback)
 
-        feedback.sentiment = sentiment
-        feedback.issue = issue
+    # ---------------------------------------------------------
+    # AUTOMATION ENGINE
+    # ---------------------------------------------------------
 
-        db.commit()
-        db.refresh(feedback)
+    automation = run_feedback_automation(
+        feedback=feedback,
+        db=db,
+    )
 
-        return feedback
-
-    except Exception as error:
-        db.rollback()
-
-        print(
-            "FEEDBACK AI ERROR:",
-            repr(error),
-        )
-
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                f"Feedback analysis failed: {str(error)}"
-            ),
-        )
+    return {
+        "feedback": feedback,
+        "automation": automation,
+    }

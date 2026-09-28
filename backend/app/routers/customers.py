@@ -12,12 +12,19 @@ router = APIRouter(
 )
 
 
+# =========================================================
+# CREATE / FIND CUSTOMER
+# =========================================================
+
 @router.post("/", response_model=CustomerResponse)
 def create_customer(
     customer_data: CustomerCreate,
     db: Session = Depends(get_db),
 ):
-    # Check if customer already exists by phone
+    # ---------------------------------------------------------
+    # CHECK IF CUSTOMER ALREADY EXISTS BY PHONE
+    # ---------------------------------------------------------
+
     if customer_data.phone:
         existing_customer = (
             db.query(Customer)
@@ -26,7 +33,22 @@ def create_customer(
         )
 
         if existing_customer:
+            # Update customer information from the latest checkout
+            if customer_data.name is not None:
+                existing_customer.name = customer_data.name
+
+            existing_customer.whatsapp_opt_in = (
+                customer_data.whatsapp_opt_in
+            )
+
+            db.commit()
+            db.refresh(existing_customer)
+
             return existing_customer
+
+    # ---------------------------------------------------------
+    # CREATE NEW CUSTOMER
+    # ---------------------------------------------------------
 
     customer = Customer(
         name=customer_data.name,
@@ -41,6 +63,10 @@ def create_customer(
 
     return customer
 
+
+# =========================================================
+# GET CUSTOMER
+# =========================================================
 
 @router.get("/{customer_id}", response_model=CustomerResponse)
 def get_customer(
@@ -62,6 +88,10 @@ def get_customer(
     return customer
 
 
+# =========================================================
+# UPDATE CUSTOMER
+# =========================================================
+
 @router.patch("/{customer_id}", response_model=CustomerResponse)
 def update_customer(
     customer_id: int,
@@ -80,11 +110,23 @@ def update_customer(
             detail="Customer not found.",
         )
 
+    # ---------------------------------------------------------
+    # UPDATE NAME
+    # ---------------------------------------------------------
+
     if customer_data.name is not None:
         customer.name = customer_data.name
 
+    # ---------------------------------------------------------
+    # UPDATE PHONE
+    # ---------------------------------------------------------
+
     if customer_data.phone is not None:
         customer.phone = customer_data.phone
+
+    # ---------------------------------------------------------
+    # UPDATE WHATSAPP OPT-IN
+    # ---------------------------------------------------------
 
     customer.whatsapp_opt_in = customer_data.whatsapp_opt_in
 
