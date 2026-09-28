@@ -1,82 +1,72 @@
-# 🍔 DesiTrue
+⚡ DesiTrue
 
-### AI-Powered Food Commerce & Customer Engagement Platform
+AI-powered food ordering, customer intelligence, and automation platform
 
-DesiTrue is a full-stack food ordering platform designed to go beyond traditional food delivery.
+DesiTrue is a food-commerce prototype designed to go beyond traditional ordering. It combines ordering, payments, order tracking, WhatsApp communication, feedback intelligence, customer segmentation, coupons, and a roadmap of AI-driven automation features.
 
-It combines **food ordering, payments, customer intelligence, WhatsApp communication, AI-powered feedback analysis, coupons, and automated customer engagement** into one connected system.
+🧭 Current System
 
-The current version is a working prototype, with an AI and automation layer being developed on top of the existing commerce infrastructure.
+The current prototype focuses on the complete customer journey — from browsing the menu to ordering, delivery, WhatsApp communication, and feedback analysis.
 
----
+🔄 Core Workflow
 
-## 💡 What is DesiTrue?
+CUSTOMER
+   │
+   ▼
+MENU
+   │
+   ▼
+CART
+   │
+   ▼
+ORDER
+   │
+   ▼
+COUPON VALIDATION
+   │
+   ▼
+SIMULATED PAYMENT
+   │
+   ▼
+ORDER CONFIRMED
+   │
+   ▼
+ORDER TRACKING
+   │
+   ▼
+DELIVERY
+   │
+   ├───────────────┐
+   ▼               ▼
+WHATSAPP       FEEDBACK
+   │               │
+   │               ▼
+   │          AI ANALYSIS
+   │               │
+   └───────┬───────┘
+           ▼
+     CUSTOMER DATA
 
-Most food ordering applications stop at:
-
-> Menu → Order → Payment → Delivery
-
-DesiTrue aims to continue the journey:
-
-> **Order → Understand → Personalize → Engage → Automate**
-
-The platform is being designed to understand customer behavior, analyze feedback, personalize interactions, and eventually automate customer engagement and marketing workflows.
-
----
-
-# ⚡ Current System
-
-The core working workflow currently looks like this:
-
-```text
-                CUSTOMER
-                   │
-                   ▼
-                 MENU
-                   │
-                   ▼
-                  CART
-                   │
-                   ▼
-                 ORDER
-                   │
-                   ▼
-            COUPON VALIDATION
-                   │
-                   ▼
-           SIMULATED PAYMENT
-                   │
-                   ▼
-            ORDER CONFIRMED
-                   │
-                   ▼
-            ORDER TRACKING
-                   │
-                   ▼
-               DELIVERY
-                   │
-          ┌────────┴────────┐
-          ▼                 ▼
-      WHATSAPP          FEEDBACK
-          │                 │
-          │                 ▼
-          │          AI ANALYSIS
-          │                 │
-          └────────┬────────┘
-                   ▼
-           CUSTOMER DATA
 ✅ What Works Right Now
+
 🛒 Food Ordering
 
 Customers can:
 
 Browse the food menu
+
 View products and prices
-Add items to cart
+
+Add items to the cart
+
 Change quantities
+
 Checkout
+
 Provide customer information
+
 Place orders
+
 Track their orders
 
 The backend also revalidates product prices when an order is created.
@@ -98,9 +88,13 @@ Order Confirmed
 The system tracks:
 
 Payment status
+
 Order status
+
 Coupon usage
+
 Customer segment updates
+
 📦 Order Tracking
 
 Customers can follow their order through:
@@ -124,15 +118,20 @@ Automated Updates
 Customers can receive simulated messages for:
 
 ✅ Order confirmation
+
 🍳 Order preparation
+
 📦 Order ready
+
 🛵 Order delivered
+
 ⭐ Feedback requests
+
 Two-Way Messaging
 
 Customers can also reply through the WhatsApp simulator.
 
-Incoming messages can be processed for:
+Incoming messages can be processed through:
 
 Customer Message
       ↓
@@ -143,6 +142,7 @@ Rating / Feedback Detection
 Feedback Creation
       ↓
 AI Analysis
+
 ⭐ AI Feedback Intelligence
 
 One of the first AI capabilities implemented in the platform is AI-powered feedback analysis.
@@ -150,14 +150,16 @@ One of the first AI capabilities implemented in the platform is AI-powered feedb
 The system analyzes customer feedback and extracts:
 
 😊 Sentiment
-🔎 Customer issue/problem
+
+🔎 Customer issue / problem
+
 Example
 
-Customer:
+Customer
 
 "The burger was great but the fries were cold."
 
-AI:
+AI Analysis
 
 Sentiment → Neutral
 Issue     → Fries were cold
@@ -165,30 +167,43 @@ Issue     → Fries were cold
 Feedback can come from:
 
 The customer application
+
 WhatsApp
 
 Both channels connect to the same backend feedback system.
 
 🎟️ Smart Coupon System
 
-The admin dashboard includes a complete coupon management system.
+The admin dashboard includes a coupon management system.
 
 Administrators can:
 
 Create coupons
+
 View coupons
+
 Activate coupons
+
 Deactivate coupons
+
 Delete coupons
+
 Set expiry dates
+
 Set usage limits
+
 Set minimum order values
+
 Set maximum discounts
+
 Target specific customer segments
+
 Supported Discounts
-Percentage Discount
-        +
-Fixed Discount
+
+Percentage discounts
+
+Fixed discounts
+
 🔐 Server-Side Coupon Validation
 
 Coupons are not trusted purely from the frontend.
@@ -196,11 +211,17 @@ Coupons are not trusted purely from the frontend.
 The backend validates:
 
 Coupon existence
-Active/inactive state
+
+Active / inactive state
+
 Expiration
+
 Usage limit
+
 Minimum order amount
+
 Customer segment eligibility
+
 Maximum discount
 
 The final discount is recalculated during order creation.
@@ -218,24 +239,42 @@ Order created
 Payment
         ↓
 Coupon usage updated
+
 👥 Customer Intelligence
 
 Every customer can be associated with:
 
 Name
+
 Phone number
+
 WhatsApp opt-in
+
 Orders
+
 Feedback
+
 Customer segment
 
 The current prototype uses basic rule-based segmentation.
 
 Current Segments
-Segment	Description
-🆕 new_customer	New or low-order customer
-🔄 returning_customer	Customer with multiple purchases
-💎 high_value_customer	High spending / frequent customer
+
+Segment
+
+Description
+
+🆕 new_customer
+
+New or low-order customer
+
+🔄 returning_customer
+
+Customer with multiple purchases
+
+💎 high_value_customer
+
+High-spending / frequent customer
 
 The segmentation layer will later become part of the larger AI customer intelligence system.
 
@@ -244,9 +283,13 @@ The segmentation layer will later become part of the larger AI customer intellig
 The admin side currently provides operational controls for:
 
 📦 Orders
+
 🔄 Order status
+
 🎟️ Coupons
+
 📱 WhatsApp simulation
+
 👥 Customer operations
 
 The goal is to eventually evolve this into an AI-powered business control center.
@@ -258,97 +301,125 @@ The current system is only the foundation.
 The next phase transforms DesiTrue from a normal food ordering system into an AI-powered customer intelligence and automation platform.
 
 🚀 AI Roadmap
+
 1. 🍔 AI Food Recommendation Engine
 
 The system will recommend food based on customer behavior and context.
 
-Potential signals:
+Potential Signals
 
 Previous orders
+
 Product preferences
+
 Ratings
+
 Feedback
+
 Popular items
+
 Current order context
 
-Example:
+Example
 
-Customer:
+Customer
+
 "I want something similar to what I ordered last time."
 
-AI:
-"You previously enjoyed the Chicken Burger.
-Try the Peri-Peri Chicken Wrap."
+AI
+
+"You previously enjoyed the Chicken Burger. Try the Peri-Peri Chicken Wrap."
+
 2. ⏱️ Smart ETA Engine
 
 Instead of showing a fixed delivery estimate, DesiTrue will calculate a dynamic ETA using:
 
 Order items
+
 Quantity
+
 Preparation time
+
 Current order queue
+
 Historical preparation data
+
 Time of day
 
-Example:
+Example
 
 Estimated Delivery
-
 28 – 34 minutes
+
 3. 🌎 Multilingual AI
 
 Customers will be able to interact with the system naturally across multiple languages.
 
-Planned support includes:
+Planned Support
 
 🇬🇧 English
+
 🇮🇳 Hindi
+
 🇮🇳 Telugu
+
 🗣️ Hinglish
 
-Example:
+Example
 
-Customer:
+Customer
 
 "Bhai ₹300 ke andar kuch spicy suggest kar."
 
-                ↓
-
-AI understands the intent
-                ↓
-
+Customer message
+      ↓
+AI understands intent
+      ↓
 Finds suitable food
-                ↓
-
-Recommends the best option
+      ↓
+Recommends an option
 
 This will work across:
 
 Ordering
+
 Recommendations
+
 Feedback
+
 Customer support
+
 WhatsApp conversations
+
 4. 📢 AI Campaign Management
 
 The campaign system will allow the platform to create and automate customer campaigns.
 
-Planned capabilities:
+Planned Capabilities
 
 Campaign creation
+
 Audience selection
+
 Customer segmentation
+
 AI campaign strategy
+
 AI-generated copy
+
 Personalized campaigns
+
 Campaign scheduling
+
 WhatsApp campaigns
+
 Campaign response analysis
+
 Campaign performance tracking
 
 The goal is to move from:
 
-"Admin creates every campaign manually"
+"Admin creates every campaign manually."
 
 to:
 
@@ -358,7 +429,7 @@ to:
 
 The system will identify customers who may be becoming inactive.
 
-Potential signals:
+Potential Signals
 
 Last Order
     +
@@ -370,7 +441,7 @@ Feedback
     +
 Engagement
 
-Example:
+Planned Workflow
 
 Customer Behavior
        ↓
@@ -379,19 +450,24 @@ AI Analysis
 Churn Risk
        ↓
 Recommended Retention Action
+
 6. 🎁 Dynamic Personalized Offers
 
 Instead of giving everyone the same coupon, the system will recommend offers based on customer behavior.
 
-Possible offers:
+Possible Offers
 
 Percentage discounts
+
 Fixed discounts
+
 Free-item offers
+
 Comeback offers
+
 Loyalty offers
 
-AI recommends the offer.
+The AI recommends the offer.
 
 Business rules remain responsible for validating and enforcing the actual discount.
 
@@ -399,68 +475,60 @@ Business rules remain responsible for validating and enforcing the actual discou
 
 The system will recommend complementary items during the ordering process.
 
-Example:
+Example
 
 Customer adds:
 
 🍔 Chicken Burger
-
-        ↓
+       ↓
 
 AI:
 
-"Customers who order this often
-add Peri-Peri Fries."
+"Customers who order this often add Peri-Peri Fries."
 
 This can be used for:
 
 Add-ons
+
 Combos
+
 Complementary items
+
 Frequently purchased combinations
+
 8. 🗣️ Conversational AI Ordering
 
 Customers will eventually be able to order naturally using conversation.
 
-Example:
+Example
 
-Customer:
+Customer
 
 "I'm hungry. Give me something spicy under ₹300."
 
-                ↓
+AI
 
-AI:
+"I'd recommend the Spicy Chicken Burger for ₹249. Would you like fries?"
 
-"I'd recommend the Spicy Chicken Burger
-for ₹249. Would you like fries?"
-
-                ↓
-
-Customer:
+Customer
 
 "Yeah."
 
-                ↓
-
-AI updates the cart
-
-The planned workflow:
-
 Natural Language
-       ↓
+      ↓
 Intent Detection
-       ↓
+      ↓
 Product Search
-       ↓
+      ↓
 Recommendation
-       ↓
+      ↓
 Cart Action
+
 9. 📊 AI Business Copilot
 
 The admin dashboard will eventually include an AI assistant capable of answering questions using real application data.
 
-Examples:
+Example Questions
 
 "Which customers haven't ordered recently?"
 
@@ -478,29 +546,29 @@ Instead of manually searching through dashboards, the admin can ask questions na
 
 This will become the central intelligence layer connecting the different AI modules.
 
-For example:
+Example
 
 Customer gives 2⭐
-        ↓
+      ↓
 AI analyzes feedback
-        ↓
+      ↓
 Issue detected
-        ↓
+      ↓
 Customer intelligence checked
-        ↓
+      ↓
 Decision Engine
-        ↓
+      ↓
 Recovery offer recommended
-        ↓
+      ↓
 Personalized WhatsApp message
-        ↓
+      ↓
 Customer responds
-        ↓
+      ↓
 AI analyzes response
-        ↓
+      ↓
 Next action
 
-This creates a continuous automation loop:
+Continuous Automation Loop
 
 EVENT
   ↓
@@ -515,6 +583,9 @@ MEASURE
 LEARN
   ↓
 NEXT ACTION
+
+AI will recommend or determine the appropriate action, while deterministic business rules remain responsible for validation and execution.
+
 🎨 AI Campaign Creative Generation
 
 The campaign system will also generate promotional creatives.
@@ -522,14 +593,20 @@ The campaign system will also generate promotional creatives.
 A campaign can eventually contain:
 
 ✍️ Campaign headline
+
 📝 Promotional copy
+
 🎟️ Offer
+
 🔘 CTA
+
 📱 WhatsApp-ready message
+
 🖼️ AI-generated promotional image
+
 🎯 Target audience
 
-Planned workflow:
+Planned Workflow
 
 Customer Data
       ↓
@@ -548,22 +625,32 @@ Schedule
 WhatsApp Campaign
       ↓
 Response Analysis
+
 📈 AI Analytics
 
 The future analytics layer will bring together:
 
 Revenue
+
 Orders
+
 Products
+
 Customers
+
 Coupons
+
 Feedback
+
 Campaigns
+
 Customer segments
+
 Churn
+
 AI-generated insights
 
-Example:
+Example
 
 📊 AI BUSINESS INSIGHT
 
@@ -574,46 +661,47 @@ among recent orders.
 
 Consider targeting affected customers
 with a recovery campaign.
+
 🔗 The Bigger Vision
 
-The final system is designed around a continuous customer intelligence loop:
+The final system is designed around a continuous customer intelligence loop.
 
                          CUSTOMER
                             │
               ┌─────────────┴─────────────┐
               │                           │
-           ORDERING                 CONVERSATION
+          ORDERING                  CONVERSATION
               │                           │
               ▼                           ▼
-       AI RECOMMENDATION           MULTILINGUAL AI
+      AI RECOMMENDATION            MULTILINGUAL AI
               │                           │
               └─────────────┬─────────────┘
                             ▼
-                          ORDER
+                           ORDER
                             │
                             ▼
-                     SMART ETA
+                         SMART ETA
                             │
                             ▼
                          PAYMENT
                             │
                             ▼
-                       DELIVERY
+                         DELIVERY
                             │
               ┌─────────────┴─────────────┐
               ▼                           ▼
           FEEDBACK                    WHATSAPP
               │                           │
               ▼                           ▼
-        AI ANALYSIS                 RESPONSE
+        AI ANALYSIS                  RESPONSE
               │                           │
               └─────────────┬─────────────┘
                             ▼
-                   CUSTOMER INTELLIGENCE
+                  CUSTOMER INTELLIGENCE
                             │
               ┌─────────────┼─────────────┐
               ▼             ▼             ▼
-           CHURN         OFFERS        SEGMENTS
+            CHURN         OFFERS       SEGMENTS
               │             │             │
               └─────────────┼─────────────┘
                             ▼
@@ -622,48 +710,75 @@ The final system is designed around a continuous customer intelligence loop:
                             ▼
                     CAMPAIGN ENGINE
                             │
-                    ┌───────┴───────┐
-                    ▼               ▼
-                 AI COPY         AI IMAGE
-                    │               │
-                    └───────┬───────┘
+                      ┌─────┴─────┐
+                      ▼           ▼
+                   AI COPY     AI IMAGE
+                      │           │
+                      └─────┬─────┘
                             ▼
                          WHATSAPP
                             │
                             ▼
-                       CUSTOMER
+                         CUSTOMER
                             │
                             ▼
-                     AI RESPONSE
+                       AI RESPONSE
                             │
                             ▼
-                    NEXT AUTOMATION
+                      NEXT AUTOMATION
+
 🏗️ Tech Stack
+
 Frontend
+
 ⚛️ React
+
 ▲ Next.js
+
 📘 TypeScript
+
 🎨 Tailwind CSS
+
 Backend
+
 🐍 Python
+
 ⚡ FastAPI
+
 🗃️ SQLAlchemy
+
 📋 Pydantic
+
 Database
+
 🐘 PostgreSQL
+
 Database Migrations
+
 🔄 Alembic
+
 AI
+
 ✨ Gemini API
+
 AI feedback analysis
+
 Planned recommendation systems
+
 Planned conversational AI
+
 Planned AI analytics
+
 Planned automation engine
+
 Communication
+
 📱 WhatsApp simulator
+
 🔗 Webhook-ready architecture
+
 📁 Project Structure
+
 DesiTrue/
 │
 ├── backend/
@@ -697,39 +812,48 @@ DesiTrue/
 │
 ├── .gitignore
 └── README.md
+
 ⚙️ Getting Started
-1. Clone
+
+1. Clone the Repository
+
 git clone <repository-url>
 cd DesiTrue
-2. Backend
+
+2. Start the Backend
+
 cd backend
 
-Create a virtual environment:
+Create a Virtual Environment
 
 python -m venv venv
+
 Windows
+
 venv\Scripts\activate
 
-Install dependencies:
+Install Dependencies
 
 pip install -r requirements.txt
 
-Start the API:
+Start the API
 
 uvicorn app.main:app --reload
-3. Frontend
+
+3. Start the Frontend
 
 Open another terminal:
 
 cd frontend
 
-Install dependencies:
+Install Dependencies
 
 npm install
 
-Start Next.js:
+Start Next.js
 
 npm run dev
+
 🔐 Environment Variables
 
 Create a .env file for local development.
@@ -742,59 +866,108 @@ GEMINI_API_KEY=your_gemini_api_key
 ⚠️ Never commit API keys, database credentials, or other secrets to Git.
 
 🧪 Project Status
+
 ✅ Completed
- Food menu
- Product management
- Customer ordering
- Shopping cart
- Checkout
- Simulated payment
- Payment tracking
- Order management
- Order status tracking
- Customer management
- Customer segmentation
- WhatsApp simulator
- Two-way WhatsApp messaging
- WhatsApp order notifications
- Feedback collection
- WhatsApp feedback
- AI sentiment analysis
- AI issue extraction
- Coupon creation
- Coupon activation/deactivation
- Coupon deletion
- Coupon validation
- Coupon expiry validation
- Coupon usage limits
- Minimum order validation
- Maximum discount validation
- Segment-based coupon targeting
- Coupon integration with orders
- Coupon usage tracking
- Database migrations
+
+Food menu
+
+Product management
+
+Customer ordering
+
+Shopping cart
+
+Checkout
+
+Simulated payment
+
+Payment tracking
+
+Order management
+
+Order status tracking
+
+Customer management
+
+Customer segmentation
+
+WhatsApp simulator
+
+Two-way WhatsApp messaging
+
+WhatsApp order notifications
+
+Feedback collection
+
+WhatsApp feedback
+
+AI sentiment analysis
+
+AI issue extraction
+
+Coupon creation
+
+Coupon activation / deactivation
+
+Coupon deletion
+
+Coupon validation
+
+Coupon expiry validation
+
+Coupon usage limits
+
+Minimum order validation
+
+Maximum discount validation
+
+Segment-based coupon targeting
+
+Coupon integration with orders
+
+Coupon usage tracking
+
+Database migrations
+
 🚧 Coming Next
- Campaign management
- 🍔 AI food recommendations
- ⏱️ Smart ETA prediction
- 🌎 Multilingual AI
- 🧠 AI churn prediction
- 🎁 Dynamic personalized offers
- 🍟 AI upselling & cross-selling
- 🗣️ Conversational AI ordering
- 📢 AI campaign generation
- 🎨 AI-generated promotional creatives
- 📅 Scheduled campaign automation
- 📈 Campaign response analytics
- 📊 AI Business Copilot
- 🔄 AI Automation / Decision Engine
- 📉 Advanced analytics
- 💡 AI-generated business insights
+
+Campaign management
+
+🍔 AI food recommendations
+
+⏱️ Smart ETA prediction
+
+🌎 Multilingual AI
+
+🧠 AI churn prediction
+
+🎁 Dynamic personalized offers
+
+🍟 AI upselling & cross-selling
+
+🗣️ Conversational AI ordering
+
+📢 AI campaign generation
+
+🎨 AI-generated promotional creatives
+
+📅 Scheduled campaign automation
+
+📈 Campaign response analytics
+
+📊 AI Business Copilot
+
+🔄 AI Automation / Decision Engine
+
+📉 Advanced analytics
+
+💡 AI-generated business insights
+
 🎯 Project Vision
 
 DesiTrue is being built to move beyond a traditional food ordering application.
 
-The long-term goal is to create a system where:
+The long-term goal is to create a system where every customer interaction can contribute to customer intelligence and trigger useful automated actions.
 
 Customer Interaction
         ↓
@@ -822,4 +995,6 @@ Don't just process the order. Understand the customer, learn from every interact
 
 👨‍💻 Developer
 
-Arun Reddy
+Arun
+
+Built as an AI-focused prototype for exploring intelligent food commerce, customer engagement, and automation.
