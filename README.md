@@ -1,55 +1,57 @@
 ⚡ DesiTrue
 
-AI-powered food ordering, customer intelligence, and automation platform
+AI-Powered Food Ordering, Customer Intelligence & Automation Platform
 
-DesiTrue is a food-commerce prototype designed to go beyond traditional ordering. It combines ordering, payments, order tracking, WhatsApp communication, feedback intelligence, customer segmentation, coupons, and a roadmap of AI-driven automation features.
+DesiTrue is a food-commerce prototype designed to go beyond traditional food ordering.
 
-🧭 Current System
+It combines food ordering, payments, order tracking, WhatsApp communication, feedback intelligence, customer segmentation, coupons, and AI-powered automation into one platform.
+
+📌 Current System
 
 The current prototype focuses on the complete customer journey — from browsing the menu to ordering, delivery, WhatsApp communication, and feedback analysis.
 
 🔄 Core Workflow
 
-CUSTOMER
-   │
-   ▼
-MENU
-   │
-   ▼
-CART
-   │
-   ▼
-ORDER
-   │
-   ▼
-COUPON VALIDATION
-   │
-   ▼
-SIMULATED PAYMENT
-   │
-   ▼
-ORDER CONFIRMED
-   │
-   ▼
-ORDER TRACKING
-   │
-   ▼
-DELIVERY
-   │
-   ├───────────────┐
-   ▼               ▼
-WHATSAPP       FEEDBACK
-   │               │
-   │               ▼
-   │          AI ANALYSIS
-   │               │
-   └───────┬───────┘
-           ▼
-     CUSTOMER DATA
+                         CUSTOMER
+                            │
+                            ▼
+                           MENU
+                            │
+                            ▼
+                           CART
+                            │
+                            ▼
+                          ORDER
+                            │
+                            ▼
+                    COUPON VALIDATION
+                            │
+                            ▼
+                    SIMULATED PAYMENT
+                            │
+                            ▼
+                     ORDER CONFIRMED
+                            │
+                            ▼
+                      ORDER TRACKING
+                            │
+                            ▼
+                         DELIVERY
+                            │
+                 ┌──────────┴──────────┐
+                 ▼                     ▼
+              WHATSAPP             FEEDBACK
+                 │                     │
+                 │                     ▼
+                 │                 AI ANALYSIS
+                 │                     │
+                 └──────────┬──────────┘
+                            ▼
+                      CUSTOMER DATA
 
 ✅ What Works Right Now
 
-🛒 Food Ordering
+🛒 1. Food Ordering
 
 Customers can:
 
@@ -71,9 +73,11 @@ Track their orders
 
 The backend also revalidates product prices when an order is created.
 
-💳 Payment Flow
+💳 2. Payment Flow
 
 A simulated payment system is currently implemented so the complete order lifecycle can be demonstrated without requiring a production payment gateway.
+
+Payment Lifecycle
 
 Order Created
       ↓
@@ -85,7 +89,7 @@ Payment Successful
       ↓
 Order Confirmed
 
-The system tracks:
+The System Tracks
 
 Payment status
 
@@ -95,7 +99,7 @@ Coupon usage
 
 Customer segment updates
 
-📦 Order Tracking
+📦 3. Order Tracking
 
 Customers can follow their order through:
 
@@ -109,7 +113,7 @@ Customers can follow their order through:
 
 The admin interface controls the order status, while the customer application reflects the current state.
 
-📱 WhatsApp Automation
+📱 4. WhatsApp Automation
 
 A WhatsApp simulator is included to demonstrate how the platform can communicate with customers without requiring the production WhatsApp Business API.
 
@@ -117,15 +121,29 @@ Automated Updates
 
 Customers can receive simulated messages for:
 
-✅ Order confirmation
+Status
 
-🍳 Order preparation
+Notification
 
-📦 Order ready
+✅ Confirmed
 
-🛵 Order delivered
+Order confirmation
 
-⭐ Feedback requests
+🍳 Preparing
+
+Order preparation
+
+📦 Ready
+
+Order ready
+
+🛵 Delivered
+
+Order delivered
+
+⭐ Feedback
+
+Feedback request
 
 Two-Way Messaging
 
@@ -134,16 +152,16 @@ Customers can also reply through the WhatsApp simulator.
 Incoming messages can be processed through:
 
 Customer Message
-      ↓
+       ↓
 Message Processing
-      ↓
+       ↓
 Rating / Feedback Detection
-      ↓
+       ↓
 Feedback Creation
-      ↓
+       ↓
 AI Analysis
 
-⭐ AI Feedback Intelligence
+⭐ 5. AI Feedback Intelligence
 
 One of the first AI capabilities implemented in the platform is AI-powered feedback analysis.
 
@@ -166,15 +184,15 @@ Issue     → Fries were cold
 
 Feedback can come from:
 
-The customer application
+Customer application
 
 WhatsApp
 
 Both channels connect to the same backend feedback system.
 
-🎟️ Smart Coupon System
+🎟️ 6. Smart Coupon System
 
-The admin dashboard includes a coupon management system.
+The admin dashboard includes a complete coupon management system.
 
 Administrators can:
 
@@ -200,11 +218,11 @@ Target specific customer segments
 
 Supported Discounts
 
-Percentage discounts
+Percentage discount
 
-Fixed discounts
+Fixed discount
 
-🔐 Server-Side Coupon Validation
+🔐 7. Server-Side Coupon Validation
 
 Coupons are not trusted purely from the frontend.
 
@@ -226,6 +244,8 @@ Maximum discount
 
 The final discount is recalculated during order creation.
 
+Coupon Flow
+
 Customer enters coupon
         ↓
 Frontend validation
@@ -240,7 +260,7 @@ Payment
         ↓
 Coupon usage updated
 
-👥 Customer Intelligence
+👥 8. Customer Intelligence
 
 Every customer can be associated with:
 
@@ -274,11 +294,11 @@ Customer with multiple purchases
 
 💎 high_value_customer
 
-High-spending / frequent customer
+High spending / frequent customer
 
 The segmentation layer will later become part of the larger AI customer intelligence system.
 
-🛠️ Admin Dashboard
+🛠️ 9. Admin Dashboard
 
 The admin side currently provides operational controls for:
 
@@ -298,7 +318,9 @@ The goal is to eventually evolve this into an AI-powered business control center
 
 The current system is only the foundation.
 
-The next phase transforms DesiTrue from a normal food ordering system into an AI-powered customer intelligence and automation platform.
+The next phase transforms DesiTrue from a normal food ordering system into an:
+
+AI-powered customer intelligence and automation platform.
 
 🚀 AI Roadmap
 
@@ -322,15 +344,15 @@ Current order context
 
 Example
 
-Customer
+Customer:
 
 "I want something similar to what I ordered last time."
 
-AI
+AI:
 
 "You previously enjoyed the Chicken Burger. Try the Peri-Peri Chicken Wrap."
 
-2. ⏱️ Smart ETA Engine
+2. ⏱️ Smart ETA Prediction Engine
 
 Instead of showing a fixed delivery estimate, DesiTrue will calculate a dynamic ETA using:
 
@@ -353,7 +375,7 @@ Estimated Delivery
 
 3. 🌎 Multilingual AI
 
-Customers will be able to interact with the system naturally across multiple languages.
+Customers will be able to interact naturally across multiple languages.
 
 Planned Support
 
@@ -367,17 +389,17 @@ Planned Support
 
 Example
 
-Customer
+Customer:
 
 "Bhai ₹300 ke andar kuch spicy suggest kar."
 
-Customer message
-      ↓
-AI understands intent
-      ↓
-Finds suitable food
-      ↓
-Recommends an option
+Customer Message
+       ↓
+AI Understands Intent
+       ↓
+Finds Suitable Food
+       ↓
+Recommends an Option
 
 This will work across:
 
@@ -417,13 +439,18 @@ Campaign response analysis
 
 Campaign performance tracking
 
-The goal is to move from:
+Planned Direction
 
-"Admin creates every campaign manually."
-
-to:
-
-"AI identifies an opportunity and prepares the campaign."
+Manual Campaign Creation
+          ↓
+          ↓
+AI Identifies Opportunity
+          ↓
+AI Prepares Campaign
+          ↓
+Campaign Execution
+          ↓
+Response Analysis
 
 5. 🧠 AI Churn Prediction
 
@@ -467,9 +494,7 @@ Comeback offers
 
 Loyalty offers
 
-The AI recommends the offer.
-
-Business rules remain responsible for validating and enforcing the actual discount.
+The AI recommends the offer, while business rules remain responsible for validating and enforcing the actual discount.
 
 7. 🍟 AI Upselling & Cross-Selling
 
@@ -502,17 +527,19 @@ Customers will eventually be able to order naturally using conversation.
 
 Example
 
-Customer
+Customer:
 
 "I'm hungry. Give me something spicy under ₹300."
 
-AI
+AI:
 
 "I'd recommend the Spicy Chicken Burger for ₹249. Would you like fries?"
 
-Customer
+Customer:
 
 "Yeah."
+
+Planned Workflow
 
 Natural Language
       ↓
@@ -549,24 +576,24 @@ This will become the central intelligence layer connecting the different AI modu
 Example
 
 Customer gives 2⭐
-      ↓
+       ↓
 AI analyzes feedback
-      ↓
+       ↓
 Issue detected
-      ↓
+       ↓
 Customer intelligence checked
-      ↓
+       ↓
 Decision Engine
-      ↓
+       ↓
 Recovery offer recommended
-      ↓
+       ↓
 Personalized WhatsApp message
-      ↓
+       ↓
 Customer responds
-      ↓
+       ↓
 AI analyzes response
-      ↓
-Next action
+       ↓
+Next Action
 
 Continuous Automation Loop
 
@@ -731,23 +758,47 @@ The final system is designed around a continuous customer intelligence loop.
 
 Frontend
 
+Technology
+
+Purpose
+
 ⚛️ React
+
+UI development
 
 ▲ Next.js
 
+Frontend framework
+
 📘 TypeScript
+
+Type-safe development
 
 🎨 Tailwind CSS
 
+Styling
+
 Backend
+
+Technology
+
+Purpose
 
 🐍 Python
 
+Backend development
+
 ⚡ FastAPI
+
+API framework
 
 🗃️ SQLAlchemy
 
+ORM / database access
+
 📋 Pydantic
+
+Data validation
 
 Database
 
@@ -858,8 +909,6 @@ npm run dev
 
 Create a .env file for local development.
 
-Example:
-
 DATABASE_URL=your_database_url
 GEMINI_API_KEY=your_gemini_api_key
 
@@ -868,6 +917,8 @@ GEMINI_API_KEY=your_gemini_api_key
 🧪 Project Status
 
 ✅ Completed
+
+Ordering & Payments
 
 Food menu
 
@@ -887,9 +938,19 @@ Order management
 
 Order status tracking
 
+Customer Intelligence
+
 Customer management
 
 Customer segmentation
+
+Feedback collection
+
+AI sentiment analysis
+
+AI issue extraction
+
+WhatsApp
 
 WhatsApp simulator
 
@@ -897,13 +958,9 @@ Two-way WhatsApp messaging
 
 WhatsApp order notifications
 
-Feedback collection
-
 WhatsApp feedback
 
-AI sentiment analysis
-
-AI issue extraction
+Coupons
 
 Coupon creation
 
@@ -927,11 +984,13 @@ Coupon integration with orders
 
 Coupon usage tracking
 
+Infrastructure
+
 Database migrations
 
 🚧 Coming Next
 
-Campaign management
+AI & Automation
 
 🍔 AI food recommendations
 
@@ -947,6 +1006,14 @@ Campaign management
 
 🗣️ Conversational AI ordering
 
+📊 AI Business Copilot
+
+🔄 AI Automation / Decision Engine
+
+Campaigns
+
+Campaign management
+
 📢 AI campaign generation
 
 🎨 AI-generated promotional creatives
@@ -955,9 +1022,7 @@ Campaign management
 
 📈 Campaign response analytics
 
-📊 AI Business Copilot
-
-🔄 AI Automation / Decision Engine
+Analytics
 
 📉 Advanced analytics
 
@@ -967,7 +1032,7 @@ Campaign management
 
 DesiTrue is being built to move beyond a traditional food ordering application.
 
-The long-term goal is to create a system where every customer interaction can contribute to customer intelligence and trigger useful automated actions.
+The long-term goal is to create a system where:
 
 Customer Interaction
         ↓
@@ -995,6 +1060,19 @@ Don't just process the order. Understand the customer, learn from every interact
 
 👨‍💻 Developer
 
-Arun
+Arun Reddy
 
-Built as an AI-focused prototype for exploring intelligent food commerce, customer engagement, and automation.
+Built as an AI-focused prototype for exploring:
+
+Intelligent food commerce
+
+Customer engagement
+
+AI-powered personalization
+
+Business automation
+
+Customer intelligence
+<p align="center">
+  <strong>⚡ DesiTrue - From Orders to Customer Intelligence</strong>
+</p>
