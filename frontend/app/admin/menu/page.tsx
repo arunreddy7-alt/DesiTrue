@@ -699,16 +699,59 @@ export default function MenuManagementPage() {
                             className="h-20 w-20 rounded-xl border object-cover"
                           />
 
-                          <div>
+                          <div className="flex-1">
                             <p className="text-sm font-medium">
                               Image uploaded
                             </p>
                             <p className="text-xs text-gray-500">
                               This image will be used for the product.
                             </p>
+
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch(
+                                    `${API_URL}/api/uploads/product-image?image_url=${encodeURIComponent(
+                                      productImageUrl
+                                    )}`,
+                                    {
+                                      method: "DELETE",
+                                    }
+                                  );
+
+                                  const data = await response.json();
+
+                                  if (!response.ok) {
+                                    throw new Error(
+                                      data.detail ||
+                                        "Failed to remove image."
+                                    );
+                                  }
+
+                                  setProductImageUrl("");
+                                } catch (error) {
+                                  console.error(
+                                    "Product image removal error:",
+                                    error
+                                  );
+
+                                  alert(
+                                    error instanceof Error
+                                      ? error.message
+                                      : "Failed to remove image."
+                                  );
+                                }
+                              }}
+                              className="mt-2 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                            >
+                              Remove Image
+                            </button>
                           </div>
                         </div>
                       )}
+
+                     
                     </div>
 
                     <textarea
