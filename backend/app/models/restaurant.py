@@ -58,6 +58,10 @@ class Restaurant(Base):
         default=Decimal("0.00"),
         nullable=False,
     )
+    coupons: Mapped[list["Coupon"]] = relationship(
+    "Coupon",
+    back_populates="restaurant",
+)
 
     is_active: Mapped[bool] = mapped_column(
         Boolean,

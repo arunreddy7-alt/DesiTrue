@@ -9,26 +9,17 @@ load_dotenv()
 from fastapi import FastAPI
 
 from app.routers.restaurants import router as restaurants_router
-
 from app.routers.campaigns import router as campaigns_router
-
 from app.routers.categories import router as categories_router
-
 from app.routers.coupons import router as coupons_router
-
 from fastapi.middleware.cors import CORSMiddleware
-
 from app.routers.whatsapp import router as whatsapp_router
-
 from app.routers.payments import router as payments_router
-
 from app.routers.customers import router as customers_router
-
 from app.routers.orders import router as orders_router
-
 from app.routers.feedback import router as feedback_router
-
 from app.routers.products import router as products_router
+from app.routers.uploads import router as uploads_router
 
 from app.core.database import engine
 
@@ -51,6 +42,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# ============================================================
+# API ROUTES
+# ============================================================
+
 app.include_router(products_router)
 app.include_router(orders_router)
 app.include_router(feedback_router)
@@ -61,7 +57,12 @@ app.include_router(coupons_router)
 app.include_router(campaigns_router)
 app.include_router(categories_router)
 app.include_router(restaurants_router)
+app.include_router(uploads_router)
 
+
+# ============================================================
+# GENERATED CAMPAIGN FILES
+# ============================================================
 
 GENERATED_CAMPAIGNS_DIR = (
     Path(__file__).resolve().parent.parent
@@ -80,6 +81,51 @@ app.mount(
     ),
     name="generated-campaigns",
 )
+
+
+# ============================================================
+# UPLOADED MEDIA FILES
+# ============================================================
+
+UPLOADS_DIR = (
+    Path(__file__).resolve().parent.parent
+    / "uploads"
+)
+
+RESTAURANT_LOGOS_DIR = (
+    UPLOADS_DIR
+    / "restaurant-logos"
+)
+
+PRODUCT_IMAGES_DIR = (
+    UPLOADS_DIR
+    / "product-images"
+)
+
+
+RESTAURANT_LOGOS_DIR.mkdir(
+    parents=True,
+    exist_ok=True,
+)
+
+PRODUCT_IMAGES_DIR.mkdir(
+    parents=True,
+    exist_ok=True,
+)
+
+
+app.mount(
+    "/uploads",
+    StaticFiles(
+        directory=UPLOADS_DIR
+    ),
+    name="uploads",
+)
+
+
+# ============================================================
+# ROOT
+# ============================================================
 
 @app.get("/")
 def root():

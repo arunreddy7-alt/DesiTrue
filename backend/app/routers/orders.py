@@ -132,9 +132,12 @@ def create_order(
 
         coupon = (
             db.query(Coupon)
-            .filter(Coupon.code == code)
+            .filter(
+                Coupon.code == code,
+                Coupon.restaurant_id == order_data.restaurant_id,
+            )
             .first()
-        )
+            )
 
         if not coupon:
             raise HTTPException(

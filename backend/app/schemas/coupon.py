@@ -4,6 +4,8 @@ from pydantic import BaseModel, Field
 
 
 class CouponCreate(BaseModel):
+    restaurant_id: int
+
     code: str = Field(
         min_length=2,
         max_length=50,
@@ -39,6 +41,7 @@ class CouponCreate(BaseModel):
 
 class CouponResponse(BaseModel):
     id: int
+    restaurant_id: int
     code: str
     discount_type: str
     discount_value: float
@@ -56,6 +59,7 @@ class CouponResponse(BaseModel):
 
 
 class CouponValidateRequest(BaseModel):
+    restaurant_id: int
     code: str
     order_total: float
     customer_id: int | None = None

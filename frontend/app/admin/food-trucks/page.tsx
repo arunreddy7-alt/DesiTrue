@@ -610,23 +610,79 @@ export default function FoodTrucksPage() {
 
               {/* LOGO */}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Logo URL
-                </label>
+            <div>
+  <label className="mb-2 block text-sm font-medium text-gray-700">
+    Logo
+  </label>
 
-                <input
-                  value={form.logo_url}
-                  onChange={(event) =>
-                    handleChange(
-                      "logo_url",
-                      event.target.value
-                    )
-                  }
-                  placeholder="https://..."
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-black"
-                />
-              </div>
+  <div className="space-y-3">
+    <input
+      type="file"
+      accept="image/png,image/jpeg,image/webp"
+      onChange={async (event) => {
+        const file = event.target.files?.[0];
+
+        if (!file) {
+          return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+          alert("Logo must be smaller than 5 MB.");
+          event.target.value = "";
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+          const response = await fetch(
+            `${API_URL}/api/uploads/restaurant-logo`,
+            {
+              method: "POST",
+              body: formData,
+            }
+          );
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(
+              data.detail || "Failed to upload logo."
+            );
+          }
+
+          handleChange(
+            "logo_url",
+            `${API_URL}${data.url}`
+          );
+        } catch (error) {
+          console.error("Logo upload error:", error);
+          alert(
+            error instanceof Error
+              ? error.message
+              : "Failed to upload logo."
+          );
+        }
+      }}
+      className="block w-full rounded-lg border border-gray-300 p-2 text-sm"
+    />
+
+    {form.logo_url && (
+      <div className="flex items-center gap-3">
+        <img
+          src={form.logo_url}
+          alt="Restaurant logo preview"
+          className="h-16 w-16 rounded-lg object-cover border"
+        />
+
+        <span className="text-sm text-gray-500">
+          Logo uploaded
+        </span>
+      </div>
+    )}
+  </div>
+</div>
 
               {/* PHONE + CURRENCY */}
 

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models import Coupon, Customer
+from app.models import Coupon, Customer, Restaurant
 from app.schemas.coupon import (
     CouponCreate,
     CouponResponse,
@@ -28,7 +28,30 @@ def create_coupon(
     coupon_data: CouponCreate,
     db: Session = Depends(get_db),
 ):
+    # -----------------------------------------------------
+    # Verify restaurant
+    # -----------------------------------------------------
+
+    restaurant = (
+        db.query(Restaurant)
+        .filter(
+            Restaurant.id == coupon_data.restaurant_id,
+            Restaurant.is_active == True,
+        )
+        .first()
+    )
+
+    if not restaurant:
+        raise HTTPException(
+            status_code=404,
+            detail="Restaurant not found or inactive.",
+        )
+
     code = coupon_data.code.strip().upper()
+
+    # -----------------------------------------------------
+    # Validate discount type
+    # -----------------------------------------------------
 
     if coupon_data.discount_type not in {
         "percentage",
@@ -48,19 +71,31 @@ def create_coupon(
             detail="Percentage discount cannot exceed 100%.",
         )
 
+    # -----------------------------------------------------
+    # Check duplicate code ONLY inside this restaurant
+    # -----------------------------------------------------
+
     existing_coupon = (
         db.query(Coupon)
-        .filter(Coupon.code == code)
+        .filter(
+            Coupon.restaurant_id == coupon_data.restaurant_id,
+            Coupon.code == code,
+        )
         .first()
     )
 
     if existing_coupon:
         raise HTTPException(
             status_code=400,
-            detail="Coupon code already exists.",
+            detail="Coupon code already exists for this restaurant.",
         )
 
+    # -----------------------------------------------------
+    # Create coupon
+    # -----------------------------------------------------
+
     coupon = Coupon(
+        restaurant_id=coupon_data.restaurant_id,
         code=code,
         discount_type=coupon_data.discount_type,
         discount_value=coupon_data.discount_value,
@@ -86,10 +121,30 @@ def create_coupon(
 
 @router.get("/", response_model=list[CouponResponse])
 def get_coupons(
+    restaurant_id: int | None = None,
     db: Session = Depends(get_db),
 ):
+    query = db.query(Coupon)
+
+    if restaurant_id is not None:
+        restaurant = (
+            db.query(Restaurant)
+            .filter(Restaurant.id == restaurant_id)
+            .first()
+        )
+
+        if not restaurant:
+            raise HTTPException(
+                status_code=404,
+                detail="Restaurant not found.",
+            )
+
+        query = query.filter(
+            Coupon.restaurant_id == restaurant_id
+        )
+
     coupons = (
-        db.query(Coupon)
+        query
         .order_by(Coupon.created_at.desc())
         .all()
     )
@@ -107,15 +162,22 @@ def get_coupons(
 )
 def get_coupon(
     code: str,
+    restaurant_id: int | None = None,
     db: Session = Depends(get_db),
 ):
-    coupon = (
+    query = (
         db.query(Coupon)
         .filter(
             Coupon.code == code.strip().upper()
         )
-        .first()
     )
+
+    if restaurant_id is not None:
+        query = query.filter(
+            Coupon.restaurant_id == restaurant_id
+        )
+
+    coupon = query.first()
 
     if not coupon:
         raise HTTPException(
@@ -156,8 +218,10 @@ def deactivate_coupon(
         "message": "Coupon deactivated successfully.",
         "coupon_id": coupon.id,
         "code": coupon.code,
+        "restaurant_id": coupon.restaurant_id,
         "is_active": coupon.is_active,
     }
+
 
 # =========================================================
 # ACTIVATE COUPON
@@ -189,9 +253,9 @@ def activate_coupon(
         "message": "Coupon activated successfully.",
         "coupon_id": coupon.id,
         "code": coupon.code,
+        "restaurant_id": coupon.restaurant_id,
         "is_active": coupon.is_active,
     }
-
 
 
 # =========================================================
@@ -238,15 +302,18 @@ def validate_coupon(
 ):
     code = coupon_data.code.strip().upper()
 
+    # -----------------------------------------------------
+    # Find coupon for THIS restaurant
+    # -----------------------------------------------------
+
     coupon = (
         db.query(Coupon)
-        .filter(Coupon.code == code)
+        .filter(
+            Coupon.code == code,
+            Coupon.restaurant_id == coupon_data.restaurant_id,
+        )
         .first()
     )
-
-    # -----------------------------------------------------
-    # Coupon doesn't exist
-    # -----------------------------------------------------
 
     if not coupon:
         return CouponValidateResponse(
@@ -314,14 +381,16 @@ def validate_coupon(
         if coupon_data.customer_id is None:
             return CouponValidateResponse(
                 valid=False,
-                message="This coupon is available to selected customers only.",
+                message=(
+                    "This coupon is available to "
+                    "selected customers only."
+                ),
             )
 
         customer = (
             db.query(Customer)
             .filter(
-                Customer.id
-                == coupon_data.customer_id
+                Customer.id == coupon_data.customer_id
             )
             .first()
         )

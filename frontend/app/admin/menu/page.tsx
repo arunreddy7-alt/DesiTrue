@@ -177,6 +177,47 @@ export default function MenuManagementPage() {
   };
 
   // -----------------------------
+  // Upload product image
+  // -----------------------------
+
+  const uploadProductImage = async (file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error("Image must be smaller than 5 MB.");
+    }
+
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error("Only JPG, PNG, and WebP images are allowed.");
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(
+      `${API_URL}/api/uploads/product-image`,
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.detail || "Failed to upload product image."
+      );
+    }
+
+    return `${API_URL}${data.url}`;
+  };
+
+  // -----------------------------
   // Create product
   // -----------------------------
 
@@ -612,16 +653,63 @@ export default function MenuManagementPage() {
                       ))}
                     </select>
 
-                    <input
-                      value={productImageUrl}
-                      onChange={(event) =>
-                        setProductImageUrl(
-                          event.target.value
-                        )
-                      }
-                      placeholder="Image URL (optional)"
-                      className="rounded-xl border border-gray-300 px-4 py-3 outline-none"
-                    />
+                    <div className="rounded-xl border border-gray-300 p-4">
+                      <label className="mb-2 block text-sm font-medium">
+                        Food Image
+                      </label>
+
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        onChange={async (event) => {
+                          const file = event.target.files?.[0];
+
+                          if (!file) {
+                            return;
+                          }
+
+                          try {
+                            const uploadedUrl =
+                              await uploadProductImage(file);
+
+                            setProductImageUrl(uploadedUrl);
+                          } catch (error) {
+                            console.error(
+                              "Product image upload error:",
+                              error
+                            );
+
+                            alert(
+                              error instanceof Error
+                                ? error.message
+                                : "Failed to upload product image."
+                            );
+
+                            event.target.value = "";
+                          }
+                        }}
+                        className="block w-full text-sm"
+                      />
+
+                      {productImageUrl && (
+                        <div className="mt-3 flex items-center gap-3">
+                          <img
+                            src={productImageUrl}
+                            alt="Product preview"
+                            className="h-20 w-20 rounded-xl border object-cover"
+                          />
+
+                          <div>
+                            <p className="text-sm font-medium">
+                              Image uploaded
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              This image will be used for the product.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                     <textarea
                       value={productDescription}

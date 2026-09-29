@@ -490,98 +490,109 @@ const [categories, setCategories] =
   // COUPON
   // =========================================================
 
-  const applyCoupon = async () => {
-    setCouponError("");
+ const applyCoupon = async () => {
+  setCouponError("");
 
-    const code = couponCode.trim().toUpperCase();
+  const code = couponCode.trim().toUpperCase();
 
-    if (!code) {
-      setCouponError(
-        "Please enter a coupon code."
+  if (!restaurant) {
+    setCouponError(
+      "Restaurant information is unavailable."
+    );
+    return;
+  }
+
+  if (!code) {
+    setCouponError("Please enter a coupon code.");
+    return;
+  }
+
+  if (cart.length === 0) {
+    setCouponError("Your cart is empty.");
+    return;
+  }
+
+  if (!restaurant) {
+    setCouponError(
+      "Restaurant information is unavailable."
+    );
+    return;
+  }
+
+  try {
+    setIsApplyingCoupon(true);
+
+    const response = await fetch(
+      `${API_URL}/api/coupons/validate`,
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify({
+          restaurant_id: restaurant.id,
+          code,
+          order_total: cartTotal,
+        }),
+      }
+    );
+
+    const data: CouponValidationResponse =
+      await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        typeof data?.message === "string"
+          ? data.message
+          : "Failed to validate coupon."
       );
-      return;
     }
 
-    if (cart.length === 0) {
-      setCouponError(
-        "Your cart is empty."
-      );
-      return;
-    }
-
-    try {
-      setIsApplyingCoupon(true);
-
-      const response = await fetch(
-        `${API_URL}/api/coupons/validate`,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type": "application/json",
-          },
-
-          body: JSON.stringify({
-            code,
-            order_total: cartTotal,
-          }),
-        }
-      );
-
-      const data: CouponValidationResponse =
-        await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          typeof data?.message === "string"
-            ? data.message
-            : "Failed to validate coupon."
-        );
-      }
-
-      if (!data.valid) {
-        setAppliedCoupon(null);
-        setCouponDiscount(0);
-
-        setCouponError(
-          data.message ||
-            "This coupon cannot be applied."
-        );
-
-        return;
-      }
-
-      setAppliedCoupon(
-        data.coupon_code || code
-      );
-
-      setCouponDiscount(
-        Number(data.discount || 0)
-      );
-
-      setCouponCode(
-        data.coupon_code || code
-      );
-
-      setCouponError("");
-    } catch (error) {
-      console.error(
-        "COUPON VALIDATION ERROR:",
-        error
-      );
-
+    if (!data.valid) {
       setAppliedCoupon(null);
       setCouponDiscount(0);
 
       setCouponError(
-        error instanceof Error
-          ? error.message
-          : "Failed to apply coupon."
+        data.message ||
+          "This coupon cannot be applied."
       );
-    } finally {
-      setIsApplyingCoupon(false);
+
+      return;
     }
-  };
+
+    setAppliedCoupon(
+      data.coupon_code || code
+    );
+
+    setCouponDiscount(
+      Number(data.discount || 0)
+    );
+
+    setCouponCode(
+      data.coupon_code || code
+    );
+
+    setCouponError("");
+  } catch (error) {
+    console.error(
+      "COUPON VALIDATION ERROR:",
+      error
+    );
+
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
+
+    setCouponError(
+      error instanceof Error
+        ? error.message
+        : "Failed to apply coupon."
+    );
+  } finally {
+    setIsApplyingCoupon(false);
+  }
+};
 
   // =========================================================
   // REMOVE COUPON

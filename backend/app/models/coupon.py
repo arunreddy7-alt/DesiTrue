@@ -1,7 +1,14 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Integer, Numeric, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -14,9 +21,14 @@ class Coupon(Base):
         index=True,
     )
 
+    restaurant_id: Mapped[int] = mapped_column(
+        ForeignKey("restaurants.id"),
+        nullable=False,
+        index=True,
+    )
+
     code: Mapped[str] = mapped_column(
         String(50),
-        unique=True,
         nullable=False,
         index=True,
     )
@@ -72,4 +84,9 @@ class Coupon(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
+    )
+
+    restaurant: Mapped["Restaurant"] = relationship(
+        "Restaurant",
+        back_populates="coupons",
     )
