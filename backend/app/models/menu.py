@@ -9,13 +9,45 @@ from app.core.database import Base
 class Category(Base):
     __tablename__ = "categories"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
-    slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        index=True,
+    )
+
+    restaurant_id: Mapped[int] = mapped_column(
+        ForeignKey("restaurants.id"),
+        nullable=False,
+        index=True,
+    )
+
+    name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    slug: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    description: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow
+        DateTime,
+        default=datetime.utcnow,
+    )
+
+    restaurant: Mapped["Restaurant"] = relationship(
+        "Restaurant",
+        back_populates="categories",
     )
 
     products: Mapped[list["Product"]] = relationship(
@@ -27,22 +59,57 @@ class Category(Base):
 class Product(Base):
     __tablename__ = "products"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        index=True,
+    )
+
+    restaurant_id: Mapped[int] = mapped_column(
+        ForeignKey("restaurants.id"),
+        nullable=False,
+        index=True,
+    )
+
     category_id: Mapped[int] = mapped_column(
         ForeignKey("categories.id"),
         nullable=False,
     )
 
-    name: Mapped[str] = mapped_column(String(150), nullable=False)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
-    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    name: Mapped[str] = mapped_column(
+        String(150),
+        nullable=False,
+    )
 
-    is_available: Mapped[bool] = mapped_column(Boolean, default=True)
+    description: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    price: Mapped[float] = mapped_column(
+        Numeric(10, 2),
+        nullable=False,
+    )
+
+    image_url: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
+    is_available: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow
+        DateTime,
+        default=datetime.utcnow,
+    )
+
+    restaurant: Mapped["Restaurant"] = relationship(
+        "Restaurant",
+        back_populates="products",
     )
 
     category: Mapped["Category"] = relationship(
-        back_populates="products"
+        back_populates="products",
     )

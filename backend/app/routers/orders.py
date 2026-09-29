@@ -1,10 +1,18 @@
 from decimal import Decimal
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from datetime import datetime
+
 from app.core.database import get_db
-from app.models import Customer, Coupon, Order, OrderItem, Product
+from app.models import (
+    Customer,
+    Coupon,
+    Order,
+    OrderItem,
+    Product,
+    Restaurant,
+)
 from app.schemas.order import OrderCreate, OrderResponse
 from app.services.whatsapp_service import (
     send_feedback_request_whatsapp,
@@ -33,6 +41,29 @@ def create_order(
             detail="Order must contain at least one item.",
         )
 
+    # -----------------------------------------------------
+    # VALIDATE RESTAURANT
+    # -----------------------------------------------------
+
+    restaurant = (
+        db.query(Restaurant)
+        .filter(
+            Restaurant.id == order_data.restaurant_id,
+            Restaurant.is_active == True,
+        )
+        .first()
+    )
+
+    if not restaurant:
+        raise HTTPException(
+            status_code=404,
+            detail="Restaurant not found or inactive.",
+        )
+
+    # -----------------------------------------------------
+    # VALIDATE CUSTOMER
+    # -----------------------------------------------------
+
     if order_data.customer_id is not None:
         customer = (
             db.query(Customer)
@@ -46,14 +77,20 @@ def create_order(
                 detail="Customer not found.",
             )
 
+    # -----------------------------------------------------
+    # CALCULATE SUBTOTAL
+    # -----------------------------------------------------
+
     subtotal = Decimal("0.00")
     order_items = []
 
     for item in order_data.items:
+
         product = (
             db.query(Product)
             .filter(
                 Product.id == item.product_id,
+                Product.restaurant_id == order_data.restaurant_id,
                 Product.is_available == True,
             )
             .first()
@@ -82,10 +119,15 @@ def create_order(
             }
         )
 
+    # -----------------------------------------------------
+    # COUPON
+    # -----------------------------------------------------
+
     discount = Decimal("0.00")
     coupon_id = None
 
     if order_data.coupon_code:
+
         code = order_data.coupon_code.strip().upper()
 
         coupon = (
@@ -133,13 +175,20 @@ def create_order(
                 ),
             )
 
+        # -------------------------------------------------
+        # SEGMENT TARGETING
+        # -------------------------------------------------
+
         if coupon.target_segment:
+
             if order_data.customer_id is None:
                 raise HTTPException(
                     status_code=400,
-                    detail="This coupon is available to selected customers only.",
+                    detail=(
+                        "This coupon is available to "
+                        "selected customers only."
+                    ),
                 )
-            
 
             customer = (
                 db.query(Customer)
@@ -159,29 +208,50 @@ def create_order(
                     detail="You are not eligible for this coupon.",
                 )
 
+        # -------------------------------------------------
+        # CALCULATE DISCOUNT
+        # -------------------------------------------------
+
         if coupon.discount_type == "percentage":
+
             discount = (
                 subtotal
                 * Decimal(str(coupon.discount_value))
                 / Decimal("100")
             )
+
         else:
-            discount = Decimal(str(coupon.discount_value))
+
+            discount = Decimal(
+                str(coupon.discount_value)
+            )
 
         if coupon.maximum_discount is not None:
+
             discount = min(
                 discount,
                 Decimal(str(coupon.maximum_discount)),
             )
-        
 
-        discount = min(discount, subtotal)
+        discount = min(
+            discount,
+            subtotal,
+        )
 
         coupon_id = coupon.id
 
+    # -----------------------------------------------------
+    # FINAL TOTAL
+    # -----------------------------------------------------
+
     total = subtotal - discount
 
+    # -----------------------------------------------------
+    # CREATE ORDER
+    # -----------------------------------------------------
+
     order = Order(
+        restaurant_id=order_data.restaurant_id,
         customer_id=order_data.customer_id,
         coupon_id=coupon_id,
         status="pending",
@@ -189,12 +259,17 @@ def create_order(
         discount=discount,
         total=total,
         payment_status="pending",
-)
+    )
 
     db.add(order)
     db.flush()
 
+    # -----------------------------------------------------
+    # CREATE ORDER ITEMS
+    # -----------------------------------------------------
+
     for item in order_items:
+
         order_item = OrderItem(
             order_id=order.id,
             product_id=item["product"].id,
@@ -241,15 +316,31 @@ def get_order(
 
 @router.get("/", response_model=list[OrderResponse])
 def get_orders(
+    restaurant_id: int | None = None,
     db: Session = Depends(get_db),
 ):
-    orders = (
-        db.query(Order)
-        .order_by(Order.created_at.desc())
-        .all()
-    )
+    query = db.query(Order)
 
-    return orders
+    if restaurant_id is not None:
+        restaurant = (
+            db.query(Restaurant)
+            .filter(Restaurant.id == restaurant_id)
+            .first()
+        )
+
+        if not restaurant:
+            raise HTTPException(
+                status_code=404,
+                detail="Restaurant not found.",
+            )
+
+        query = query.filter(
+            Order.restaurant_id == restaurant_id
+        )
+
+    return query.order_by(
+        Order.created_at.desc()
+    ).all()
 
 
 # ---------------------------------------------------------
@@ -303,7 +394,7 @@ def update_order_status(
         order=order,
     )
 
-    # Delivered triggers the feedback request too
+    # Delivered triggers feedback request
     if status == "delivered":
         send_feedback_request_whatsapp(
             db=db,

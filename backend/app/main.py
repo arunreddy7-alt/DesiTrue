@@ -8,7 +8,11 @@ load_dotenv()
 
 from fastapi import FastAPI
 
+from app.routers.restaurants import router as restaurants_router
+
 from app.routers.campaigns import router as campaigns_router
+
+from app.routers.categories import router as categories_router
 
 from app.routers.coupons import router as coupons_router
 
@@ -55,6 +59,8 @@ app.include_router(payments_router)
 app.include_router(whatsapp_router)
 app.include_router(coupons_router)
 app.include_router(campaigns_router)
+app.include_router(categories_router)
+app.include_router(restaurants_router)
 
 
 GENERATED_CAMPAIGNS_DIR = (

@@ -56,6 +56,11 @@ class Order(Base):
         primary_key=True,
         index=True,
     )
+    restaurant_id: Mapped[int] = mapped_column(
+    ForeignKey("restaurants.id"),
+    nullable=False,
+    index=True,
+)
 
     customer_id: Mapped[int | None] = mapped_column(
         ForeignKey("customers.id"),
@@ -99,6 +104,10 @@ class Order(Base):
     customer: Mapped["Customer | None"] = relationship(
         back_populates="orders",
     )
+    restaurant: Mapped["Restaurant"] = relationship(
+    "Restaurant",
+    back_populates="orders",
+)
 
     coupon: Mapped["Coupon | None"] = relationship()
 

@@ -17,6 +17,7 @@ class OrderItemCreate(BaseModel):
 # =========================================================
 
 class OrderCreate(BaseModel):
+    restaurant_id: int
     customer_id: int | None = None
     coupon_code: str | None = None
     items: list[OrderItemCreate]
@@ -39,6 +40,7 @@ class OrderItemResponse(BaseModel):
 
 class OrderResponse(BaseModel):
     id: int
+    restaurant_id: int
     customer_id: int | None
     coupon_id: int | None
     status: str

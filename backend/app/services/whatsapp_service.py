@@ -1,30 +1,78 @@
+from datetime import datetime
+
 from sqlalchemy.orm import Session
 
-from app.models import Customer, Order, WhatsAppMessage
+from app.models import (
+    Campaign,
+    Customer,
+    Order,
+    WhatsAppMessage,
+)
 
+
+# =========================================================
+# CREATE WHATSAPP MESSAGE
+# =========================================================
 
 def create_whatsapp_message(
     db: Session,
-    order: Order,
+    customer: Customer,
     message_type: str,
     message: str,
+    order: Order | None = None,
+    media_url: str | None = None,
 ):
     """
-    Creates a WhatsApp message in the simulator.
+    Creates a simulated WhatsApp message.
 
-    This does NOT connect to the real WhatsApp API yet.
-    It stores the message so our WhatsApp simulator
-    can display it later.
+    Messages are only created when:
+    - customer has a phone number
+    - customer has opted into WhatsApp
     """
 
-    if order.customer_id is None:
+    if not customer.phone:
         return None
 
-    customer = (
-        db.query(Customer)
-        .filter(Customer.id == order.customer_id)
-        .first()
+    if not customer.whatsapp_opt_in:
+        return None
+
+    whatsapp_message = WhatsAppMessage(
+        customer_id=customer.id,
+        order_id=order.id if order else None,
+        phone=customer.phone,
+        message_type=message_type,
+        message=message,
+        status="sent",
+        media_url=media_url,
     )
+
+    db.add(whatsapp_message)
+    db.flush()
+
+    return whatsapp_message
+
+
+# =========================================================
+# SEND ORDER STATUS WHATSAPP
+# =========================================================
+
+def send_order_status_whatsapp(
+    db: Session,
+    order: Order,
+):
+    """
+    Sends a WhatsApp notification based on the current
+    order status.
+
+    Supported statuses:
+
+        confirmed
+        preparing
+        ready
+        delivered
+    """
+
+    customer = order.customer
 
     if not customer:
         return None
@@ -35,116 +83,164 @@ def create_whatsapp_message(
     if not customer.whatsapp_opt_in:
         return None
 
-    whatsapp_message = WhatsAppMessage(
-        customer_id=customer.id,
-        order_id=order.id,
-        phone=customer.phone,
-        message_type=message_type,
-        message=message,
-        status="sent",
+    # -----------------------------------------------------
+    # Dynamic restaurant name
+    # -----------------------------------------------------
+
+    restaurant_name = (
+        order.restaurant.name
+        if order.restaurant
+        else "Food Truck"
     )
 
-    db.add(whatsapp_message)
-    db.flush()
-
-    return whatsapp_message
-
-
-def send_order_status_whatsapp(
-    db: Session,
-    order: Order,
-):
-    """
-    Generates the appropriate WhatsApp message
-    based on the current order status.
-    """
+    # -----------------------------------------------------
+    # Confirmed
+    # -----------------------------------------------------
 
     if order.status == "confirmed":
-        message_type = "order_confirmed"
 
         message = (
-            f"🍔 DesiTrue — Order #{order.id}\n\n"
-            f"Your order has been confirmed!\n\n"
-            f"We'll let you know when it's ready."
+            f"✅ {restaurant_name} — Order #{order.id}\n\n"
+            "Your order has been confirmed!\n\n"
+            "We'll notify you when it's being prepared."
         )
 
-    elif order.status == "preparing":
-        message_type = "order_preparing"
+        return create_whatsapp_message(
+            db=db,
+            customer=customer,
+            order=order,
+            message_type="order_confirmed",
+            message=message,
+        )
+
+    # -----------------------------------------------------
+    # Preparing
+    # -----------------------------------------------------
+
+    if order.status == "preparing":
 
         message = (
-            f"👨‍🍳 DesiTrue — Order #{order.id}\n\n"
-            f"Your order is now being prepared!\n\n"
-            f"We'll notify you when it's ready."
+            f"👨‍🍳 {restaurant_name} — Order #{order.id}\n\n"
+            "Your order is now being prepared!\n\n"
+            "We'll notify you when it's ready."
         )
 
-    elif order.status == "ready":
-        message_type = "order_ready"
+        return create_whatsapp_message(
+            db=db,
+            customer=customer,
+            order=order,
+            message_type="order_preparing",
+            message=message,
+        )
+
+    # -----------------------------------------------------
+    # Ready
+    # -----------------------------------------------------
+
+    if order.status == "ready":
 
         message = (
-            f"🔔 DesiTrue — Order #{order.id}\n\n"
-            f"Your order is ready!\n\n"
-            f"Please collect your order."
+            f"🔔 {restaurant_name} — Order #{order.id}\n\n"
+            "Your order is ready!\n\n"
+            "Please collect your order."
         )
 
-    elif order.status == "delivered":
-        message_type = "order_delivered"
+        return create_whatsapp_message(
+            db=db,
+            customer=customer,
+            order=order,
+            message_type="order_ready",
+            message=message,
+        )
+
+    # -----------------------------------------------------
+    # Delivered
+    # -----------------------------------------------------
+
+    if order.status == "delivered":
 
         message = (
-            f"✅ DesiTrue — Order #{order.id}\n\n"
-            f"Your order has been delivered.\n\n"
-            f"Enjoy your meal! ❤️"
+            f"✅ {restaurant_name} — Order #{order.id}\n\n"
+            "Your order has been delivered.\n\n"
+            "Enjoy your meal! ❤️"
         )
 
-    else:
-        return None
+        return create_whatsapp_message(
+            db=db,
+            customer=customer,
+            order=order,
+            message_type="order_delivered",
+            message=message,
+        )
 
-    return create_whatsapp_message(
-        db=db,
-        order=order,
-        message_type=message_type,
-        message=message,
-    )
+    return None
 
+
+# =========================================================
+# SEND FEEDBACK REQUEST WHATSAPP
+# =========================================================
 
 def send_feedback_request_whatsapp(
     db: Session,
     order: Order,
 ):
     """
-    Sends the WhatsApp feedback request after
-    an order is marked as delivered.
+    Sends a WhatsApp feedback request after an order
+    has been delivered.
     """
 
-    if order.status != "delivered":
+    customer = order.customer
+
+    if not customer:
         return None
 
+    if not customer.phone:
+        return None
+
+    if not customer.whatsapp_opt_in:
+        return None
+
+    # -----------------------------------------------------
+    # Dynamic restaurant name
+    # -----------------------------------------------------
+
+    restaurant_name = (
+        order.restaurant.name
+        if order.restaurant
+        else "Food Truck"
+    )
+
     message = (
-        f"⭐ DesiTrue — Order #{order.id}\n\n"
-        f"How was your order?\n\n"
-        f"We'd love to hear about your experience.\n\n"
-        f"Reply with your rating from 1 to 5 ⭐ "
-        f"and tell us what you thought."
+        f"⭐ {restaurant_name} — Order #{order.id}\n\n"
+        "How was your order?\n\n"
+        "We'd love to hear about your experience.\n\n"
+        "Reply with your rating from 1 to 5 ⭐ "
+        "and tell us what you thought."
     )
 
     return create_whatsapp_message(
         db=db,
+        customer=customer,
         order=order,
         message_type="feedback_request",
         message=message,
     )
+
+
+# =========================================================
+# SEND CAMPAIGN WHATSAPP
+# =========================================================
+
 def send_campaign_whatsapp(
     db: Session,
     customer: Customer,
-    campaign,
+    campaign: Campaign,
 ):
     """
-    Sends a campaign message through the WhatsApp simulator.
+    Sends a campaign message to a customer.
 
-    Includes:
-    - Campaign title
-    - Campaign message
-    - Coupon code
-    - Campaign image
+    Campaign messages are not associated with a specific
+    order, therefore order_id remains NULL.
     """
 
     if not customer.phone:
@@ -154,51 +250,32 @@ def send_campaign_whatsapp(
         return None
 
     # -----------------------------------------------------
-    # COUPON
+    # Campaign message
     # -----------------------------------------------------
 
-    coupon_code = None
-
-    if campaign.coupon_id and campaign.coupon:
-        coupon_code = campaign.coupon.code
+    message = campaign.message
 
     # -----------------------------------------------------
-    # BUILD MESSAGE
+    # Optional campaign image
+    #
+    # The Campaign model may contain image_url.
+    # getattr keeps this compatible if the field isn't
+    # present in an older database/model version.
     # -----------------------------------------------------
 
-    message_parts = [
-        "🔥 DesiTrue",
-        "",
-        campaign.title,
-        "",
-        campaign.message,
-    ]
-
-    if coupon_code:
-        message_parts.extend(
-            [
-                "",
-                f"🎟️ Use code: {coupon_code}",
-            ]
-        )
-
-    message = "\n".join(message_parts)
-
-    # -----------------------------------------------------
-    # CREATE WHATSAPP MESSAGE
-    # -----------------------------------------------------
-
-    whatsapp_message = WhatsAppMessage(
-        customer_id=customer.id,
-        order_id=None,
-        phone=customer.phone,
-        message_type="campaign",
-        message=message,
-        media_url=campaign.image_url,
-        status="sent",
+    media_url = getattr(
+        campaign,
+        "image_url",
+        None,
     )
 
-    db.add(whatsapp_message)
-    db.flush()
+    whatsapp_message = create_whatsapp_message(
+        db=db,
+        customer=customer,
+        message_type="campaign",
+        message=message,
+        order=None,
+        media_url=media_url,
+    )
 
     return whatsapp_message
