@@ -3,7 +3,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models import Category, Restaurant
+from app.core.dependencies import get_current_user
+from app.models import Category, Restaurant, User
 
 
 router = APIRouter(
@@ -89,7 +90,30 @@ def get_categories(
 def create_category(
     category_data: CategoryCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
+        # ------------------------------------------
+    # Tenant isolation
+    # ------------------------------------------
+
+    if current_user.role == "RESTAURANT_ADMIN":
+        if current_user.restaurant_id is None:
+            raise HTTPException(
+                status_code=403,
+                detail="Restaurant admin is not assigned to a restaurant.",
+            )
+
+        if category_data.restaurant_id != current_user.restaurant_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have access to this restaurant.",
+            )
+
+    elif current_user.role != "OWNER":
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to create categories.",
+        )
     restaurant = (
         db.query(Restaurant)
         .filter(Restaurant.id == category_data.restaurant_id)
@@ -171,6 +195,7 @@ def update_category(
     category_id: int,
     category_data: CategoryUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     category = (
         db.query(Category)
@@ -182,6 +207,28 @@ def update_category(
         raise HTTPException(
             status_code=404,
             detail="Category not found.",
+        )
+        # ------------------------------------------
+    # Tenant isolation
+    # ------------------------------------------
+
+    if current_user.role == "RESTAURANT_ADMIN":
+        if current_user.restaurant_id is None:
+            raise HTTPException(
+                status_code=403,
+                detail="Restaurant admin is not assigned to a restaurant.",
+            )
+
+        if category.restaurant_id != current_user.restaurant_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have access to this category.",
+            )
+
+    elif current_user.role != "OWNER":
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to update categories.",
         )
 
     update_data = category_data.model_dump(
@@ -222,6 +269,7 @@ def update_category(
 def delete_category(
     category_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     category = (
         db.query(Category)
@@ -233,6 +281,28 @@ def delete_category(
         raise HTTPException(
             status_code=404,
             detail="Category not found.",
+        )
+        # ------------------------------------------
+    # Tenant isolation
+    # ------------------------------------------
+
+    if current_user.role == "RESTAURANT_ADMIN":
+        if current_user.restaurant_id is None:
+            raise HTTPException(
+                status_code=403,
+                detail="Restaurant admin is not assigned to a restaurant.",
+            )
+
+        if category.restaurant_id != current_user.restaurant_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have access to this category.",
+            )
+
+    elif current_user.role != "OWNER":
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to delete categories.",
         )
 
     if category.products:

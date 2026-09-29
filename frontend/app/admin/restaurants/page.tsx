@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
+import React, { useEffect, useState } from "react";
 const API_URL = "http://localhost:8000";
+
+const getToken = () => {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("access_token");
+};
 
 type Restaurant = {
   id: number;
@@ -27,6 +31,11 @@ type RestaurantForm = {
   currency: string;
   tax_percentage: string;
   is_active: boolean;
+
+  // Admin credentials — used only when creating
+  admin_email: string;
+  admin_password: string;
+  admin_password_confirm: string;
 };
 
 const emptyForm: RestaurantForm = {
@@ -39,6 +48,10 @@ const emptyForm: RestaurantForm = {
   currency: "INR",
   tax_percentage: "0",
   is_active: true,
+
+  admin_email: "",
+  admin_password: "",
+  admin_password_confirm: "",
 };
 
 export default function RestaurantsPage() {
@@ -55,14 +68,51 @@ export default function RestaurantsPage() {
   const [updatingStatus, setUpdatingStatus] = useState<number | null>(null);
 
   // =========================================================
+  // AUTH / FORM HELPERS
+  // =========================================================
+
+  const handleUnauthorized = () => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("auth_user");
+    window.location.href = "/login";
+  };
+
+  const handleChange = (
+    field: keyof RestaurantForm,
+    value: string | boolean
+  ) => {
+    setForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+  };
+
+  // =========================================================
   // FETCH RESTAURANTS
   // =========================================================
 
   const fetchRestaurants = async () => {
     try {
+      const token = getToken();
+
+      if (!token) {
+        window.location.href = "/login";
+        return;
+      }
+
       const response = await fetch(`${API_URL}/api/restaurants/`, {
         cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
+
+      if (response.status === 401) {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("auth_user");
+        window.location.href = "/login";
+        return;
+      }
 
       if (!response.ok) {
         throw new Error("Failed to fetch food trucks");
@@ -105,17 +155,21 @@ export default function RestaurantsPage() {
   const openEditForm = (restaurant: Restaurant) => {
     setEditingRestaurant(restaurant);
 
-    setForm({
-      name: restaurant.name,
-      slug: restaurant.slug,
-      description: restaurant.description || "",
-      logo_url: restaurant.logo_url || "",
-      phone: restaurant.phone || "",
-      address: restaurant.address || "",
-      currency: restaurant.currency,
-      tax_percentage: String(restaurant.tax_percentage),
-      is_active: restaurant.is_active,
-    });
+   setForm({
+  name: restaurant.name,
+  slug: restaurant.slug,
+  description: restaurant.description || "",
+  logo_url: restaurant.logo_url || "",
+  phone: restaurant.phone || "",
+  address: restaurant.address || "",
+  currency: restaurant.currency,
+  tax_percentage: String(restaurant.tax_percentage),
+  is_active: restaurant.is_active,
+
+  admin_email: "",
+  admin_password: "",
+  admin_password_confirm: "",
+});
 
     setShowForm(true);
   };
@@ -137,41 +191,108 @@ export default function RestaurantsPage() {
       alert("Food truck name is required.");
       return;
     }
+    if (!editingRestaurant) {
+      if (!form.admin_email.trim()) {
+        alert("Admin email is required.");
+        return;
+      }
+
+      if (!form.admin_password) {
+        alert("Admin password is required.");
+        return;
+      }
+
+      if (form.admin_password.length < 8) {
+        alert("Admin password must be at least 8 characters.");
+        return;
+      }
+
+      if (form.admin_password !== form.admin_password_confirm) {
+        alert("Admin passwords do not match.");
+        return;
+      }
+    }
 
     try {
       setSaving(true);
 
       const payload = {
-        name: form.name.trim(),
-        slug: form.slug.trim() || undefined,
-        description: form.description.trim() || null,
-        logo_url: form.logo_url.trim() || null,
-        phone: form.phone.trim() || null,
-        address: form.address.trim() || null,
-        currency: form.currency.trim() || "INR",
-        tax_percentage: Number(form.tax_percentage) || 0,
-        is_active: form.is_active,
-      };
+  name: form.name.trim(),
+
+  slug:
+    form.slug.trim() ||
+    form.name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, ""),
+
+  description: form.description.trim() || null,
+  logo_url: form.logo_url.trim() || null,
+  phone: form.phone.trim() || null,
+  address: form.address.trim() || null,
+  currency: form.currency.trim() || "INR",
+  tax_percentage: Number(form.tax_percentage) || 0,
+  is_active: form.is_active,
+
+  ...(editingRestaurant
+    ? {}
+    : {
+        admin_email: form.admin_email.trim(),
+        admin_password: form.admin_password,
+      }),
+};
 
       const url = editingRestaurant
         ? `${API_URL}/api/restaurants/${editingRestaurant.id}`
         : `${API_URL}/api/restaurants/`;
 
+      const token = getToken();
+
+      if (!token) {
+        window.location.href = "/login";
+        return;
+      }
+
       const response = await fetch(url, {
         method: editingRestaurant ? "PATCH" : "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-
-        throw new Error(
-          errorData.detail || "Failed to save food truck"
-        );
+      if (response.status === 401) {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("auth_user");
+        window.location.href = "/login";
+        return;
       }
+
+     if (!response.ok) {
+  const errorData = await response.json();
+
+  console.error("Backend error:", errorData);
+
+  let errorMessage = "Failed to save food truck.";
+
+  if (Array.isArray(errorData.detail)) {
+    errorMessage = errorData.detail
+      .map((error: any) => {
+        const field = Array.isArray(error.loc)
+          ? error.loc.join(".")
+          : "field";
+
+        return `${field}: ${error.msg}`;
+      })
+      .join("\n");
+  } else if (typeof errorData.detail === "string") {
+    errorMessage = errorData.detail;
+  }
+
+  throw new Error(errorMessage);
+}
 
       await fetchRestaurants();
       closeForm();
@@ -196,12 +317,29 @@ export default function RestaurantsPage() {
     try {
       setUpdatingStatus(restaurant.id);
 
+      const token = getToken();
+
+      if (!token) {
+        window.location.href = "/login";
+        return;
+      }
+
       const response = await fetch(
         `${API_URL}/api/restaurants/${restaurant.id}/status?is_active=${!restaurant.is_active}`,
         {
           method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
       );
+
+      if (response.status === 401) {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("auth_user");
+        window.location.href = "/login";
+        return;
+      }
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -598,6 +736,74 @@ export default function RestaurantsPage() {
                 />
               </div>
 
+              {/* ADMIN ACCOUNT - CREATE ONLY */}
+
+              {!editingRestaurant && (
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+                  <div className="mb-4">
+                    <h3 className="text-base font-semibold text-gray-900">
+                      Admin Account
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Create the login credentials for this food truck.
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Admin Email *
+                      </label>
+
+                      <input
+                        type="email"
+                        value={form.admin_email}
+                        onChange={(event) =>
+                          updateField("admin_email", event.target.value)
+                        }
+                        placeholder="admin@burgergarage.com"
+                        className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-black focus:ring-1 focus:ring-black"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Admin Password *
+                      </label>
+
+                      <input
+                        type="password"
+                        value={form.admin_password}
+                        onChange={(event) =>
+                          updateField("admin_password", event.target.value)
+                        }
+                        placeholder="Minimum 8 characters"
+                        className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-black focus:ring-1 focus:ring-black"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Confirm Admin Password *
+                      </label>
+
+                      <input
+                        type="password"
+                        value={form.admin_password_confirm}
+                        onChange={(event) =>
+                          updateField(
+                            "admin_password_confirm",
+                            event.target.value
+                          )
+                        }
+                        placeholder="Re-enter password"
+                        className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-black focus:ring-1 focus:ring-black"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* PHONE + CURRENCY */}
 
               <div className="grid md:grid-cols-2 gap-4">
@@ -682,21 +888,141 @@ export default function RestaurantsPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Logo URL
+                  Logo
                 </label>
 
-                <input
-                  type="text"
-                  value={form.logo_url}
-                  onChange={(event) =>
-                    updateField(
-                      "logo_url",
-                      event.target.value
-                    )
-                  }
-                  placeholder="https://..."
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-black focus:ring-1 focus:ring-black"
-                />
+                <div className="space-y-3">
+
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={async (
+                      event
+                    ) => {
+
+                      const file =
+                        event.target.files?.[0];
+
+                      if (!file) {
+                        return;
+                      }
+
+                      if (
+                        file.size >
+                        5 *
+                          1024 *
+                          1024
+                      ) {
+                        alert(
+                          "Logo must be smaller than 5 MB."
+                        );
+
+                        event.target.value =
+                          "";
+
+                        return;
+                      }
+
+                      const formData =
+                        new FormData();
+
+                      formData.append(
+                        "file",
+                        file
+                      );
+
+                      try {
+
+                        const token =
+                          getToken();
+
+                        if (!token) {
+                          handleUnauthorized();
+                          return;
+                        }
+
+                        const response =
+                          await fetch(
+                            `${API_URL}/api/uploads/restaurant-logo`,
+                            {
+                              method:
+                                "POST",
+                              headers: {
+                                Authorization: `Bearer ${token}`,
+                              },
+                              body:
+                                formData,
+                            }
+                          );
+
+                        if (
+                          response.status ===
+                          401
+                        ) {
+                          handleUnauthorized();
+                          return;
+                        }
+
+                        const data =
+                          await response.json();
+
+                        if (
+                          !response.ok
+                        ) {
+                          throw new Error(
+                            data.detail ||
+                              "Failed to upload logo."
+                          );
+                        }
+
+                        handleChange(
+                          "logo_url",
+                          `${API_URL}${data.url}`
+                        );
+
+                      } catch (
+                        error
+                      ) {
+
+                        console.error(
+                          "Logo upload error:",
+                          error
+                        );
+
+                        alert(
+                          error instanceof
+                          Error
+                            ? error.message
+                            : "Failed to upload logo."
+                        );
+
+                      }
+
+                    }}
+                    className="block w-full rounded-lg border border-gray-300 p-2 text-sm"
+                  />
+
+                  {form.logo_url && (
+
+                    <div className="flex items-center gap-3">
+
+                      <img
+                        src={
+                          form.logo_url
+                        }
+                        alt="Restaurant logo preview"
+                        className="h-16 w-16 rounded-lg object-cover border"
+                      />
+
+                      <span className="text-sm text-gray-500">
+                        Logo uploaded
+                      </span>
+
+                    </div>
+
+                  )}
+
+                </div>
               </div>
 
               {/* ACTIVE */}
@@ -714,17 +1040,14 @@ export default function RestaurantsPage() {
                     </p>
                   </div>
 
-                  <input
-                    type="checkbox"
-                    checked={form.is_active}
-                    onChange={(event) =>
-                      updateField(
-                        "is_active",
-                        event.target.checked
-                      )
-                    }
-                    className="w-5 h-5 accent-black"
-                  />
+                 <input
+  type="checkbox"
+  checked={form.is_active}
+  onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+    updateField("is_active", event.target.checked);
+  }}
+  className="w-5 h-5 accent-black"
+/>
                 </label>
               </div>
             </div>

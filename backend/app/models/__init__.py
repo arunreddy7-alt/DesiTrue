@@ -6,6 +6,7 @@ from app.models.whatsapp_message import WhatsAppMessage
 from app.models.coupon import Coupon
 from app.models.campaign import Campaign
 from app.models.campaign_delivery import CampaignDelivery
+from app.models.user import User
 
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "Coupon",
     "Campaign",
     "CampaignDelivery",
+    "User",
 ]

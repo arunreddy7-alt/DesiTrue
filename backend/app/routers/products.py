@@ -3,8 +3,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models import Category, OrderItem, Product, Restaurant
-
+from app.models import Category, OrderItem, Product, Restaurant, User
+from app.core.dependencies import get_current_user
 router = APIRouter(
     prefix="/api/products",
     tags=["Products"],
@@ -59,8 +59,37 @@ def get_products(
     category_id: int | None = None,
     include_unavailable: bool = False,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(
+        get_current_user,
+    ),
 ):
     query = db.query(Product)
+
+    # ------------------------------------------
+    # Restaurant admin isolation
+    # ------------------------------------------
+
+    if current_user and current_user.role == "RESTAURANT_ADMIN":
+        if current_user.restaurant_id is None:
+            raise HTTPException(
+                status_code=403,
+                detail="Restaurant admin is not assigned to a restaurant.",
+            )
+
+        if (
+            restaurant_id is not None
+            and restaurant_id != current_user.restaurant_id
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have access to this restaurant.",
+            )
+
+        restaurant_id = current_user.restaurant_id
+
+    # ------------------------------------------
+    # Restaurant filtering
+    # ------------------------------------------
 
     if restaurant_id is not None:
         restaurant = (
@@ -85,10 +114,18 @@ def get_products(
             Product.restaurant_id == restaurant_id
         )
 
+    # ------------------------------------------
+    # Category filtering
+    # ------------------------------------------
+
     if category_id is not None:
         query = query.filter(
             Product.category_id == category_id
         )
+
+    # ------------------------------------------
+    # Availability filtering
+    # ------------------------------------------
 
     if not include_unavailable:
         query = query.filter(
@@ -96,7 +133,6 @@ def get_products(
         )
 
     return query.order_by(Product.id.asc()).all()
-
 
 # -----------------------------
 # GET SINGLE PRODUCT
@@ -130,7 +166,30 @@ def get_product(
 def create_product(
     product_data: ProductCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
+    # ------------------------------------------
+    # Tenant isolation
+    # ------------------------------------------
+
+    if current_user.role == "RESTAURANT_ADMIN":
+        if current_user.restaurant_id is None:
+            raise HTTPException(
+                status_code=403,
+                detail="Restaurant admin is not assigned to a restaurant.",
+            )
+
+        if product_data.restaurant_id != current_user.restaurant_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have access to this restaurant.",
+            )
+
+    elif current_user.role != "OWNER":
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to create products.",
+        )
     # Check restaurant
     restaurant = (
         db.query(Restaurant)
@@ -197,6 +256,7 @@ def update_product(
     product_id: int,
     product_data: ProductUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     product = (
         db.query(Product)
@@ -208,6 +268,24 @@ def update_product(
         raise HTTPException(
             status_code=404,
             detail="Product not found.",
+        )
+    if current_user.role == "RESTAURANT_ADMIN":
+        if current_user.restaurant_id is None:
+            raise HTTPException(
+                status_code=403,
+                detail="Restaurant admin is not assigned to a restaurant.",
+            )
+
+        if product.restaurant_id != current_user.restaurant_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have access to this product.",
+            )
+
+    elif current_user.role != "OWNER":
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to update products.",
         )
 
     update_data = product_data.model_dump(
@@ -252,6 +330,7 @@ def update_product(
 def delete_product(
     product_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     product = (
         db.query(Product)
@@ -263,6 +342,24 @@ def delete_product(
         raise HTTPException(
             status_code=404,
             detail="Product not found.",
+        )
+    if current_user.role == "RESTAURANT_ADMIN":
+        if current_user.restaurant_id is None:
+            raise HTTPException(
+                status_code=403,
+                detail="Restaurant admin is not assigned to a restaurant.",
+            )
+
+        if product.restaurant_id != current_user.restaurant_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have access to this product.",
+            )
+
+    elif current_user.role != "OWNER":
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to delete products.",
         )
 
     # Don't physically delete a product that

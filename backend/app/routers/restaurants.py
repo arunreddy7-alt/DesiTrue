@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from app.core.dependencies import require_owner, require_restaurant_access
 
 from app.core.database import get_db
 from app.models import Restaurant
+from app.core.security import hash_password
+from app.models import User
 
 
 router = APIRouter(
@@ -38,6 +41,15 @@ class RestaurantUpdate(BaseModel):
     currency: str | None = None
     tax_percentage: float | None = None
     is_active: bool | None = None
+    
+class RestaurantAdminCreate(BaseModel):
+    email: str
+    password: str
+
+
+class RestaurantWithAdminCreate(RestaurantCreate):
+    admin_email: str
+    admin_password: str
 
 
 class RestaurantResponse(BaseModel):
@@ -66,9 +78,36 @@ class RestaurantResponse(BaseModel):
     response_model=RestaurantResponse,
 )
 def create_restaurant(
-    restaurant_data: RestaurantCreate,
+    restaurant_data: RestaurantWithAdminCreate,
     db: Session = Depends(get_db),
+    current_user=Depends(require_owner),
 ):
+    # -----------------------------
+    # Validate admin credentials
+    # -----------------------------
+
+    if len(restaurant_data.admin_password) < 8:
+        raise HTTPException(
+            status_code=400,
+            detail="Admin password must be at least 8 characters.",
+        )
+
+    existing_user = (
+        db.query(User)
+        .filter(User.email == restaurant_data.admin_email)
+        .first()
+    )
+
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="An account with this admin email already exists.",
+        )
+
+    # -----------------------------
+    # Validate restaurant slug
+    # -----------------------------
+
     existing_restaurant = (
         db.query(Restaurant)
         .filter(Restaurant.slug == restaurant_data.slug)
@@ -80,6 +119,10 @@ def create_restaurant(
             status_code=400,
             detail="A restaurant with this slug already exists.",
         )
+
+    # -----------------------------
+    # Create restaurant
+    # -----------------------------
 
     restaurant = Restaurant(
         name=restaurant_data.name,
@@ -94,11 +137,28 @@ def create_restaurant(
     )
 
     db.add(restaurant)
+    db.flush()
+
+    # -----------------------------
+    # Create restaurant admin
+    # -----------------------------
+
+    admin_user = User(
+        email=restaurant_data.admin_email,
+        password_hash=hash_password(
+            restaurant_data.admin_password
+        ),
+        role="RESTAURANT_ADMIN",
+        restaurant_id=restaurant.id,
+        is_active=True,
+    )
+
+    db.add(admin_user)
+
     db.commit()
     db.refresh(restaurant)
 
     return restaurant
-
 
 # ---------------------------------------------------------
 # Get all restaurants
@@ -159,6 +219,7 @@ def update_restaurant(
     restaurant_id: int,
     restaurant_data: RestaurantUpdate,
     db: Session = Depends(get_db),
+    current_user=Depends(require_restaurant_access),
 ):
     restaurant = (
         db.query(Restaurant)

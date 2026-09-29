@@ -140,43 +140,49 @@ export default function RestaurantOrdersPage() {
   // FETCH ORDERS
   // =========================================================
 
-  const fetchOrders = async (
-    restaurantId?: number
-  ) => {
-    try {
-      const selectedRestaurantId =
-        restaurantId ?? restaurant?.id;
+const fetchOrders = async (restaurantId: number) => {
+     try {
+    const token = localStorage.getItem("access_token");
 
-      if (!selectedRestaurantId) {
-        return;
-      }
-
-      const response = await fetch(
-        `${API_URL}/api/orders/?restaurant_id=${selectedRestaurantId}`,
-        {
-          cache: "no-store",
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          "Failed to fetch orders."
-        );
-      }
-
-      const data: Order[] =
-        await response.json();
-
-      setOrders(data);
-    } catch (error) {
-      console.error(
-        "Orders error:",
-        error
-      );
-    } finally {
-      setLoading(false);
+    if (!token) {
+      window.location.href = "/login";
+      return;
     }
-  };
+
+    const response = await fetch(
+      `${API_URL}/api/orders/?restaurant_id=${restaurantId}`,
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (response.status === 401) {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("auth_user");
+      window.location.href = "/login";
+      return;
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json();
+
+      throw new Error(
+        errorData.detail || "Failed to fetch orders"
+      );
+    }
+
+    const data = await response.json();
+
+    setOrders(data);
+  } catch (error) {
+    console.error("Orders error:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // =========================================================
   // FETCH FEEDBACK
@@ -227,10 +233,7 @@ export default function RestaurantOrdersPage() {
         return;
       }
 
-      await fetchOrders(
-        selectedRestaurant.id
-      );
-
+await fetchOrders(selectedRestaurant.id);
       await fetchFeedback();
     };
 
@@ -247,7 +250,7 @@ export default function RestaurantOrdersPage() {
     }
 
     const interval = setInterval(() => {
-      fetchOrders(restaurant.id);
+        fetchOrders(restaurant.id);
       fetchFeedback();
     }, 3000);
 
@@ -260,49 +263,60 @@ export default function RestaurantOrdersPage() {
   // UPDATE ORDER STATUS
   // =========================================================
 
-  const updateStatus = async (
-    orderId: number,
-    status: string
-  ) => {
-    try {
-      setUpdatingOrder(orderId);
+const updateStatus = async (
+  orderId: number,
+  status: string
+) => {
+  try {
+    setUpdatingOrder(orderId);
 
-      const response = await fetch(
-        `${API_URL}/api/orders/${orderId}/status?status=${status}`,
-        {
-          method: "PATCH",
-        }
-      );
+    const token = localStorage.getItem("access_token");
 
-      if (!response.ok) {
-        const errorData =
-          await response.json();
-
-        throw new Error(
-          errorData.detail ||
-            "Failed to update order."
-        );
-      }
-
-      await fetchOrders(
-        restaurant?.id
-      );
-    } catch (error) {
-      console.error(
-        "Status update error:",
-        error
-      );
-
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to update order."
-      );
-    } finally {
-      setUpdatingOrder(null);
+    if (!token) {
+      window.location.href = "/login";
+      return;
     }
-  };
 
+    const response = await fetch(
+      `${API_URL}/api/orders/${orderId}/status?status=${status}`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (response.status === 401) {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("auth_user");
+      window.location.href = "/login";
+      return;
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json();
+
+      throw new Error(
+        errorData.detail || "Failed to update order"
+      );
+    }
+
+    if (restaurant?.id) {
+  await fetchOrders(restaurant.id);
+}
+  } catch (error) {
+    console.error("Status update error:", error);
+
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Failed to update order"
+    );
+  } finally {
+    setUpdatingOrder(null);
+  }
+};
   // =========================================================
   // ORDER STATUS HELPERS
   // =========================================================

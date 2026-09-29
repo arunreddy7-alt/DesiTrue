@@ -11,6 +11,7 @@ python-multipart
 pydantic
 pydantic-settings
 python-dotenv
+email-validator
 
 # Database
 sqlalchemy
@@ -23,7 +24,7 @@ httpx
 # Authentication
 PyJWT
 passlib[bcrypt]
-
+bcrypt==4.0.1
 # AI / LLM
 google-genai
 

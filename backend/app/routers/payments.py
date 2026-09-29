@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models import Coupon, Customer, Order
+from app.core.dependencies import get_optional_current_user
+from app.models import Coupon, Customer, Order, User
 from app.services.customer_segmentation import update_customer_segment
 
 
@@ -16,6 +17,7 @@ router = APIRouter(
 def simulate_payment(
     order_id: int,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     order = (
         db.query(Order)
@@ -29,12 +31,49 @@ def simulate_payment(
             detail="Order not found.",
         )
 
+    # -----------------------------------------------------
+    # RESTAURANT ACCESS CHECK FOR AUTHENTICATED USERS
+    # -----------------------------------------------------
+
+    if current_user is not None:
+
+        if current_user.role == "OWNER":
+            pass
+
+        elif current_user.role == "RESTAURANT_ADMIN":
+
+            if current_user.restaurant_id is None:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Restaurant admin is not assigned to a restaurant.",
+                )
+
+            if current_user.restaurant_id != order.restaurant_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="You do not have access to this restaurant.",
+                )
+
+        else:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have permission to process this payment.",
+            )
+
+    # -----------------------------------------------------
+    # ALREADY PAID
+    # -----------------------------------------------------
+
     if order.payment_status == "paid":
         return {
             "message": "Order is already paid.",
             "order_id": order.id,
             "payment_status": order.payment_status,
         }
+
+    # -----------------------------------------------------
+    # PAYMENT
+    # -----------------------------------------------------
 
     order.payment_status = "paid"
     order.status = "confirmed"

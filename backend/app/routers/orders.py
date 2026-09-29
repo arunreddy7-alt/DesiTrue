@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.dependencies import get_current_user
 from app.models import (
     Customer,
     Coupon,
@@ -12,6 +13,7 @@ from app.models import (
     OrderItem,
     Product,
     Restaurant,
+    User,
 )
 from app.schemas.order import OrderCreate, OrderResponse
 from app.services.whatsapp_service import (
@@ -321,9 +323,36 @@ def get_order(
 def get_orders(
     restaurant_id: int | None = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     query = db.query(Order)
+        # ------------------------------------------
+    # Tenant isolation
+    # ------------------------------------------
 
+    if current_user.role == "RESTAURANT_ADMIN":
+        if current_user.restaurant_id is None:
+            raise HTTPException(
+                status_code=403,
+                detail="Restaurant admin is not assigned to a restaurant.",
+            )
+
+        if (
+            restaurant_id is not None
+            and restaurant_id != current_user.restaurant_id
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have access to this restaurant's orders.",
+            )
+
+        restaurant_id = current_user.restaurant_id
+
+    elif current_user.role != "OWNER":
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to view orders.",
+        )
     if restaurant_id is not None:
         restaurant = (
             db.query(Restaurant)
@@ -355,6 +384,7 @@ def update_order_status(
     order_id: int,
     status: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     order = (
         db.query(Order)
@@ -366,6 +396,28 @@ def update_order_status(
         raise HTTPException(
             status_code=404,
             detail="Order not found.",
+        )
+        # ------------------------------------------
+    # Tenant isolation
+    # ------------------------------------------
+
+    if current_user.role == "RESTAURANT_ADMIN":
+        if current_user.restaurant_id is None:
+            raise HTTPException(
+                status_code=403,
+                detail="Restaurant admin is not assigned to a restaurant.",
+            )
+
+        if order.restaurant_id != current_user.restaurant_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have access to this order.",
+            )
+
+    elif current_user.role != "OWNER":
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to update order status.",
         )
 
     allowed_statuses = {

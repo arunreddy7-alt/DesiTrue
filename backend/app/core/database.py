@@ -7,15 +7,30 @@ class Settings(BaseSettings):
     database_url: str
     gemini_api_key: str
 
-    model_config = SettingsConfigDict(env_file=".env")
+    # Authentication / admin configuration
+    jwt_secret_key: str
+
+    owner_email: str
+    owner_password: str
+
+    restaurant_admin_email: str
+    restaurant_admin_password: str
+    restaurant_admin_restaurant_id: int
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore",
+    )
 
 
 settings = Settings()
+
 
 engine = create_engine(
     settings.database_url,
     pool_pre_ping=True,
 )
+
 
 SessionLocal = sessionmaker(
     bind=engine,
@@ -30,6 +45,7 @@ class Base(DeclarativeBase):
 
 def get_db():
     db = SessionLocal()
+
     try:
         yield db
     finally:
