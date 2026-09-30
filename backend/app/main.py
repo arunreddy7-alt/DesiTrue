@@ -22,6 +22,7 @@ from app.routers.products import router as products_router
 from app.routers.uploads import router as uploads_router
 from app.routers.auth import router as auth_router
 from app.routers.users import router as users_router
+from app.routers.voice import router as voice_router
 
 from app.core.database import engine
 
@@ -62,6 +63,7 @@ app.include_router(restaurants_router)
 app.include_router(uploads_router)
 app.include_router(auth_router)
 app.include_router(users_router)
+app.include_router(voice_router)
 
 
 # ============================================================

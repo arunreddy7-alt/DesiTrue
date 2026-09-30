@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   ArrowLeft,
@@ -8,6 +8,8 @@ import {
   ChevronRight,
   Clock3,
   CreditCard,
+  Mic,
+  MicOff,
   Minus,
   Plus,
   Search,
@@ -99,6 +101,59 @@ type CouponValidationResponse = {
   discount: number;
   final_total: number | null;
 };
+
+type VoiceAction =
+  | "add_to_cart"
+  | "remove_from_cart"
+  | "update_quantity"
+  | "view_cart"
+  | "recommend_items"
+  | "ask_clarification"
+  | "checkout_confirmation"
+  | "checkout"
+  | "unknown";
+
+type VoiceConversationState = {
+  pending_product_ids: number[];
+  last_selected_product_id: number | null;
+  last_mentioned_product_id: number | null;
+  pending_intent: string | null;
+};
+
+type VoiceResponse = {
+  action: VoiceAction;
+  product_id: number | null;
+  quantity: number;
+  response: string;
+  requires_confirmation: boolean;
+  conversation_state: VoiceConversationState;
+};
+
+type VoiceMessage = {
+  role: "user" | "assistant";
+  message: string;
+};
+
+type SpeechRecognitionLike = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: any) => void) | null;
+  onerror: ((event: any) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
 
 const STATUS_STEPS = [
   {
@@ -206,6 +261,348 @@ const [categories, setCategories] =
 
   const [isApplyingCoupon, setIsApplyingCoupon] =
     useState(false);
+
+  // =========================================================
+  // VOICE ORDERING
+  // =========================================================
+
+  const [voiceOpen, setVoiceOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [isVoiceProcessing, setIsVoiceProcessing] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState(
+    "Tap the microphone and tell me what you want."
+  );
+  const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [voiceMessages, setVoiceMessages] = useState<VoiceMessage[]>([]);
+  const voiceRecognitionRef =
+    useRef<SpeechRecognitionLike | null>(null);
+  const voiceSessionRef = useRef(false);
+  const voiceMessagesRef = useRef<VoiceMessage[]>([]);
+  const voiceStateRef = useRef<VoiceConversationState>({
+    pending_product_ids: [],
+    last_selected_product_id: null,
+    last_mentioned_product_id: null,
+    pending_intent: null,
+  });
+
+  useEffect(() => {
+    voiceMessagesRef.current = voiceMessages;
+  }, [voiceMessages]);
+
+  // =========================================================
+  // VOICE ORDERING HELPERS
+  // =========================================================
+
+  const speakVoiceResponse = (text: string) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.02;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
+    utterance.onend = () => {
+      if (voiceSessionRef.current && !checkoutOpen) {
+        window.setTimeout(() => startVoiceListening(), 250);
+      }
+    };
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const stopVoiceListening = () => {
+    try {
+      voiceRecognitionRef.current?.stop();
+    } catch {
+      // Recognition may already be stopped.
+    }
+
+    setIsListening(false);
+  };
+
+  const stopVoiceSession = () => {
+    voiceSessionRef.current = false;
+    stopVoiceListening();
+
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+
+    setVoiceOpen(false);
+    setIsVoiceProcessing(false);
+    setVoiceStatus("Voice ordering stopped.");
+  };
+
+  const handleVoiceCommand = async (transcript: string) => {
+    if (!restaurant || !transcript.trim()) return;
+
+    const cleanTranscript = transcript.trim();
+    setVoiceTranscript(cleanTranscript);
+    setIsVoiceProcessing(true);
+    setVoiceStatus("Thinking...");
+
+    const userMessage: VoiceMessage = {
+      role: "user",
+      message: cleanTranscript,
+    };
+
+    const historyForRequest = voiceMessagesRef.current.slice(-6);
+
+    setVoiceMessages((current) => [
+      ...current,
+      userMessage,
+    ]);
+
+    try {
+      const response = await fetch(`${API_URL}/api/voice/command`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          restaurant_id: restaurant.id,
+          transcript: cleanTranscript,
+          cart,
+          conversation_history: historyForRequest,
+          conversation_state: voiceStateRef.current,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          data?.detail || "Voice assistant failed to respond."
+        );
+      }
+
+      const result = data as VoiceResponse;
+
+      if (result.conversation_state) {
+        voiceStateRef.current = result.conversation_state;
+      }
+
+      setVoiceMessages((current) => [
+        ...current,
+        {
+          role: "assistant",
+          message: result.response,
+        },
+      ]);
+
+      if (result.action === "add_to_cart") {
+        const product = products.find(
+          (item) => item.id === result.product_id
+        );
+
+        if (product) {
+          addToCart(product, result.quantity || 1);
+          setVoiceStatus(`${product.name} added to your cart.`);
+        } else {
+          setVoiceStatus("I couldn't find that item on the menu.");
+        }
+      } else if (result.action === "remove_from_cart") {
+        if (result.product_id !== null) {
+          removeFromCart(result.product_id);
+        }
+        setVoiceStatus(result.response);
+      } else if (result.action === "update_quantity") {
+        if (result.product_id !== null) {
+          const currentItem = cart.find(
+            (item) => item.product.id === result.product_id
+          );
+
+          if (currentItem) {
+            const change = (result.quantity || 1) - currentItem.quantity;
+            if (change !== 0) {
+              updateCartQuantity(result.product_id, change);
+            }
+          }
+        }
+        setVoiceStatus(result.response);
+      } else if (result.action === "view_cart") {
+        setIsCartOpen(true);
+        setVoiceStatus(result.response);
+      } else if (result.action === "checkout_confirmation") {
+        // The customer is finished. Close the voice overlay so the
+        // existing cart drawer is actually visible above it.
+        voiceSessionRef.current = false;
+        stopVoiceListening();
+
+        if (typeof window !== "undefined" && "speechSynthesis" in window) {
+          window.speechSynthesis.cancel();
+        }
+
+        setVoiceStatus(result.response);
+        setVoiceOpen(false);
+        setIsCartOpen(true);
+      } else if (result.action === "checkout") {
+        // Close voice/cart UI and open the existing checkout directly.
+        // Do not navigate home or clear the cart.
+        voiceSessionRef.current = false;
+        stopVoiceListening();
+
+        if (typeof window !== "undefined" && "speechSynthesis" in window) {
+          window.speechSynthesis.cancel();
+        }
+
+        setVoiceStatus(result.response);
+        setVoiceOpen(false);
+        setIsCartOpen(false);
+        setCheckoutError("");
+        setCheckoutOpen(true);
+      } else {
+        setVoiceStatus(result.response);
+      }
+
+      speakVoiceResponse(result.response);
+    } catch (error) {
+      console.error("Voice ordering error:", error);
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Sorry, I couldn't process that request.";
+
+      setVoiceStatus(message);
+      speakVoiceResponse(message);
+    } finally {
+      setIsVoiceProcessing(false);
+    }
+  };
+
+  const startVoiceListening = () => {
+    if (!voiceSessionRef.current) return;
+
+    if (typeof window === "undefined") return;
+
+    const SpeechRecognitionAPI =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognitionAPI) {
+      setVoiceStatus(
+        "Voice input is not supported in this browser. Try Chrome or Edge."
+      );
+      return;
+    }
+
+    if (isVoiceProcessing) return;
+
+    try {
+      voiceRecognitionRef.current?.abort();
+    } catch {
+      // Ignore an already stopped recognition instance.
+    }
+
+    const recognition = new SpeechRecognitionAPI();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = "en-IN";
+
+    recognition.onresult = (event: any) => {
+      let finalTranscript = "";
+      let interimTranscript = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const text = event.results[i][0]?.transcript || "";
+
+        if (event.results[i].isFinal) {
+          finalTranscript += text;
+        } else {
+          interimTranscript += text;
+        }
+      }
+
+      const displayed = (finalTranscript || interimTranscript).trim();
+      setVoiceTranscript(displayed);
+
+      if (finalTranscript.trim()) {
+        setIsListening(false);
+        void handleVoiceCommand(finalTranscript.trim());
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      setIsListening(false);
+
+      if (event?.error === "aborted") return;
+
+      if (event?.error === "not-allowed") {
+        setVoiceStatus(
+          "Microphone permission was blocked. Allow microphone access and try again."
+        );
+        return;
+      }
+
+      if (event?.error === "no-speech") {
+        setVoiceStatus("I didn't hear anything. Try again.");
+        return;
+      }
+
+      setVoiceStatus("I couldn't hear you. Please try again.");
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    voiceRecognitionRef.current = recognition;
+    setVoiceTranscript("");
+    setVoiceStatus("Listening...");
+    setIsListening(true);
+
+    try {
+      recognition.start();
+    } catch (error) {
+      console.error("Voice recognition start error:", error);
+      setIsListening(false);
+      setVoiceStatus("Couldn't start the microphone. Try again.");
+    }
+  };
+
+  const startVoiceSession = () => {
+    if (!restaurant) return;
+
+    voiceSessionRef.current = true;
+    setVoiceOpen(true);
+    setVoiceMessages([]);
+    voiceMessagesRef.current = [];
+    voiceStateRef.current = {
+      pending_product_ids: [],
+      last_selected_product_id: null,
+      last_mentioned_product_id: null,
+      pending_intent: null,
+    };
+    setVoiceTranscript("");
+    setVoiceStatus(
+      `Hi! I'm your ${restaurant.name} ordering assistant. What would you like?`
+    );
+
+    const greeting =
+      `Hi! I'm your ${restaurant.name} ordering assistant. What would you like?`;
+
+    speakVoiceResponse(greeting);
+  };
+
+  useEffect(() => {
+    return () => {
+      voiceSessionRef.current = false;
+
+      try {
+        voiceRecognitionRef.current?.abort();
+      } catch {
+        // Ignore cleanup errors.
+      }
+
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   // =========================================================
   // LOAD PRODUCTS
@@ -1077,6 +1474,7 @@ const [categories, setCategories] =
             </div>
           </button>
 
+          <div className="flex items-center">
           <button
             onClick={() =>
               setIsCartOpen(true)
@@ -1091,6 +1489,16 @@ const [categories, setCategories] =
               </span>
             )}
           </button>
+
+          <button
+            onClick={startVoiceSession}
+            disabled={!restaurant}
+            className="ml-2 flex h-11 w-11 items-center justify-center rounded-full bg-orange-500 text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Start voice ordering"
+          >
+            <Mic size={20} />
+          </button>
+          </div>
 
         </div>
 
@@ -1733,6 +2141,127 @@ const [categories, setCategories] =
 
         </>
 
+      )}
+
+      {/* ================================================== */}
+      {/* VOICE ORDERING */}
+      {/* ================================================== */}
+
+      {voiceOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/40 p-4 sm:p-6">
+          <div className="mx-auto flex h-full max-w-xl items-end sm:items-center">
+            <div className="w-full overflow-hidden rounded-3xl bg-white shadow-2xl">
+              <div className="flex items-center justify-between border-b border-zinc-100 p-5">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-orange-600">
+                    Voice Ordering
+                  </p>
+                  <h2 className="mt-1 text-xl font-black">
+                    Order with your voice
+                  </h2>
+                </div>
+
+                <button
+                  onClick={stopVoiceSession}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100"
+                  aria-label="Close voice ordering"
+                >
+                  <X size={19} />
+                </button>
+              </div>
+
+              <div className="max-h-[65vh] overflow-y-auto p-5">
+                <div className="rounded-2xl bg-zinc-50 p-4">
+                  <p className="text-sm font-semibold text-zinc-800">
+                    {voiceStatus}
+                  </p>
+
+                  {voiceTranscript && (
+                    <p className="mt-2 text-sm text-zinc-500">
+                      You: “{voiceTranscript}”
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-5 space-y-3">
+                  {voiceMessages.slice(-8).map((message, index) => (
+                    <div
+                      key={`${message.role}-${index}`}
+                      className={`flex ${
+                        message.role === "user"
+                          ? "justify-end"
+                          : "justify-start"
+                      }`}
+                    >
+                      <div
+                        className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
+                          message.role === "user"
+                            ? "bg-zinc-900 text-white"
+                            : "bg-zinc-100 text-zinc-800"
+                        }`}
+                      >
+                        {message.message}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-col items-center py-6">
+                  <button
+                    onClick={() => {
+                      if (isListening) {
+                        stopVoiceListening();
+                        setVoiceStatus("Listening stopped.");
+                      } else {
+                        startVoiceListening();
+                      }
+                    }}
+                    disabled={isVoiceProcessing}
+                    className={`flex h-20 w-20 items-center justify-center rounded-full text-white shadow-lg transition ${
+                      isListening
+                        ? "bg-red-500 hover:bg-red-600"
+                        : "bg-orange-500 hover:bg-orange-600"
+                    } disabled:cursor-not-allowed disabled:opacity-50`}
+                    aria-label={isListening ? "Stop listening" : "Start listening"}
+                  >
+                    {isListening ? <MicOff size={30} /> : <Mic size={30} />}
+                  </button>
+
+                  <p className="mt-3 text-xs text-zinc-400">
+                    {isVoiceProcessing
+                      ? "AI is processing your request..."
+                      : isListening
+                        ? "Listening..."
+                        : "Tap to speak"}
+                  </p>
+                </div>
+
+                {cart.length > 0 && (
+                  <div className="rounded-2xl border border-zinc-200 p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold">
+                          Current cart
+                        </p>
+                        <p className="text-xs text-zinc-500">
+                          {cartCount} {cartCount === 1 ? "item" : "items"}
+                        </p>
+                      </div>
+                      <p className="font-black">{money(cartTotal)}</p>
+                    </div>
+
+                    <button
+                      onClick={() => setIsCartOpen(true)}
+                      className="mt-3 w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-bold hover:bg-zinc-50"
+                    >
+                      View Cart
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ================================================== */}
