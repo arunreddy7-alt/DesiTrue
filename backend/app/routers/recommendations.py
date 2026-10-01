@@ -13,6 +13,11 @@ from app.services.recommendation_service import get_recommendations
 from app.models import RecommendationConfig
 
 
+from app.services.recommendation_service import (
+    get_combo_recommendations,
+    get_recommendations,
+)
+
 router = APIRouter(
     prefix="/api/recommendations",
     tags=["Recommendations"],
@@ -45,7 +50,25 @@ def create_default_config(
 
     return config
 
-
+@router.get(
+    "/{restaurant_id}/combos",
+)
+def get_recommended_combos(
+    restaurant_id: int,
+    cart_product_ids: list[int] | None = Query(
+        default=None,
+        description="Product IDs currently in the cart.",
+    ),
+    db: Session = Depends(get_db),
+):
+    return {
+        "restaurant_id": restaurant_id,
+        "recommendations": get_combo_recommendations(
+            restaurant_id=restaurant_id,
+            cart_product_ids=cart_product_ids,
+            db=db,
+        ),
+    }
 # =========================================================
 # GET CONFIG
 # =========================================================

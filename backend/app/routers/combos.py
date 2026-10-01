@@ -1,7 +1,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
-
+from app.services.combo_service import get_combo_details
 from app.core.database import get_db
 from app.core.dependencies import require_restaurant_access
 from app.models import Combo, ComboItem, Product
@@ -183,7 +183,33 @@ def get_restaurant_combos(
         for combo in combos
     ]
 
+@router.get(
+    "/{restaurant_id}/{combo_id}/details",
+)
+def get_combo_details_endpoint(
+    restaurant_id: int,
+    combo_id: int,
+    db: Session = Depends(get_db),
+):
+    combo = get_combo_details(
+        combo_id=combo_id,
+        restaurant_id=restaurant_id,
+        db=db,
+    )
 
+    if not combo:
+        raise HTTPException(
+            status_code=404,
+            detail="Combo not found.",
+        )
+
+    if not combo["is_active"]:
+        raise HTTPException(
+            status_code=404,
+            detail="Combo is not active.",
+        )
+
+    return combo
 @router.get(
     "/{restaurant_id}/{combo_id}",
     response_model=ComboResponse,
@@ -210,6 +236,7 @@ def get_combo(
         )
 
     return serialize_combo(combo)
+
 
 
 @router.patch(

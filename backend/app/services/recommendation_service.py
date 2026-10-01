@@ -9,6 +9,14 @@ from app.models import (
     Product,
     RecommendationConfig,
 )
+from app.models import (
+    Combo,
+    ComboItem,
+    Order,
+    OrderItem,
+    Product,
+    RecommendationConfig,
+)
 
 
 # =========================================================
@@ -58,6 +66,63 @@ def serialize_product(product: Product) -> dict:
         "is_available": product.is_available,
     }
 
+def serialize_combo(
+    combo: Combo,
+    db: Session,
+) -> dict:
+    items = (
+        db.query(ComboItem, Product)
+        .join(
+            Product,
+            Product.id == ComboItem.product_id,
+        )
+        .filter(
+            ComboItem.combo_id == combo.id,
+            Product.restaurant_id == combo.restaurant_id,
+        )
+        .all()
+    )
+
+    regular_total = Decimal("0.00")
+
+    serialized_items = []
+
+    for combo_item, product in items:
+        unit_price = Decimal(str(product.price))
+        quantity = combo_item.quantity
+        item_total = unit_price * quantity
+
+        regular_total += item_total
+
+        serialized_items.append(
+            {
+                "product_id": product.id,
+                "name": product.name,
+                "quantity": quantity,
+                "unit_price": float(unit_price),
+                "total": float(item_total),
+            }
+        )
+
+    combo_price = Decimal(str(combo.price))
+
+    savings = regular_total - combo_price
+
+    if savings < 0:
+        savings = Decimal("0.00")
+
+    return {
+        "id": combo.id,
+        "name": combo.name,
+        "description": combo.description,
+        "price": float(combo_price),
+        "image_url": combo.image_url,
+        "is_active": combo.is_active,
+        "regular_total": float(regular_total),
+        "savings": float(savings),
+        "items": serialized_items,
+        "type": "combo",
+    }
 
 # =========================================================
 # POPULAR PRODUCTS
@@ -248,7 +313,67 @@ def get_available_fallback_products(
 
     return query.all()
 
+def get_available_combos(
+    restaurant_id: int,
+    cart_product_ids: set[int],
+    db: Session,
+    limit: int = 2,
+) -> list[Combo]:
+    combos = (
+        db.query(Combo)
+        .filter(
+            Combo.restaurant_id == restaurant_id,
+            Combo.is_active.is_(True),
+        )
+        .order_by(Combo.id.desc())
+        .all()
+    )
 
+    recommendations = []
+
+    for combo in combos:
+        combo_product_ids = {
+            item.product_id
+            for item in combo.items
+        }
+
+        if not combo_product_ids:
+            continue
+
+        # Skip a combo if every product inside it
+        # is already in the customer's cart.
+        if combo_product_ids.issubset(cart_product_ids):
+            continue
+
+        recommendations.append(combo)
+
+        if len(recommendations) >= limit:
+            break
+
+    return recommendations
+
+def get_combo_recommendations(
+    restaurant_id: int,
+    cart_product_ids: list[int] | None,
+    db: Session,
+    limit: int = 2,
+) -> list[dict]:
+    cart_ids = set(cart_product_ids or [])
+
+    combos = get_available_combos(
+        restaurant_id=restaurant_id,
+        cart_product_ids=cart_ids,
+        db=db,
+        limit=limit,
+    )
+
+    return [
+        serialize_combo(
+            combo=combo,
+            db=db,
+        )
+        for combo in combos
+    ]
 # =========================================================
 # MIXED STRATEGY
 # =========================================================
@@ -258,34 +383,76 @@ def get_mixed_products(
     cart_product_ids: set[int],
     db: Session,
     limit: int = 4,
-) -> list[Product]:
+) -> list[dict]:
 
-    recommendations: list[Product] = []
-    seen_ids = set(cart_product_ids)
+    recommendations = []
+    seen_product_ids = set(cart_product_ids)
+    seen_combo_ids = set()
 
-    # -----------------------------------------------------
-    # 1. Frequently bought together
-    # -----------------------------------------------------
-
-    paired = get_frequently_bought_together(
+    # ---------------------------------------------------------
+    # 1. Combos
+    # ---------------------------------------------------------
+    combos = get_available_combos(
         restaurant_id=restaurant_id,
         cart_product_ids=cart_product_ids,
         db=db,
-        limit=limit,
+        limit=1,
     )
 
-    for product in paired:
-        if product.id not in seen_ids:
-            recommendations.append(product)
-            seen_ids.add(product.id)
+    # Products already included inside recommended combos.
+    combo_product_ids = set()
+
+    for combo in combos:
+        recommendations.append(
+            serialize_combo(
+                combo=combo,
+                db=db,
+            )
+        )
+
+        seen_combo_ids.add(combo.id)
+
+        for item in combo.items:
+            combo_product_ids.add(item.product_id)
 
         if len(recommendations) >= limit:
             return recommendations
 
-    # -----------------------------------------------------
-    # 2. Complementary products
-    # -----------------------------------------------------
+    # ---------------------------------------------------------
+    # 2. Frequently bought together products
+    # ---------------------------------------------------------
+    remaining = limit - len(recommendations)
 
+    if remaining > 0:
+        paired = get_frequently_bought_together(
+            restaurant_id=restaurant_id,
+            cart_product_ids=cart_product_ids,
+            db=db,
+            limit=remaining,
+        )
+
+        for product in paired:
+
+            if product.id in seen_product_ids:
+                continue
+
+            # Don't recommend a product separately if it is
+            # already included in a recommended combo.
+            if product.id in combo_product_ids:
+                continue
+
+            recommendations.append(
+                serialize_product(product)
+            )
+
+            seen_product_ids.add(product.id)
+
+            if len(recommendations) >= limit:
+                return recommendations
+
+    # ---------------------------------------------------------
+    # 3. Complementary products
+    # ---------------------------------------------------------
     remaining = limit - len(recommendations)
 
     if remaining > 0:
@@ -293,63 +460,91 @@ def get_mixed_products(
             restaurant_id=restaurant_id,
             cart_product_ids=cart_product_ids,
             db=db,
-            limit=remaining,
+            limit=remaining + len(combo_product_ids),
         )
 
         for product in complementary:
-            if product.id not in seen_ids:
-                recommendations.append(product)
-                seen_ids.add(product.id)
+
+            if product.id in seen_product_ids:
+                continue
+
+            if product.id in combo_product_ids:
+                continue
+
+            recommendations.append(
+                serialize_product(product)
+            )
+
+            seen_product_ids.add(product.id)
 
             if len(recommendations) >= limit:
                 return recommendations
 
-    # -----------------------------------------------------
-    # 3. Popular products
-    # -----------------------------------------------------
-
+    # ---------------------------------------------------------
+    # 4. Popular products
+    # ---------------------------------------------------------
     remaining = limit - len(recommendations)
 
     if remaining > 0:
         popular = get_popular_products(
             restaurant_id=restaurant_id,
             db=db,
-            excluded_product_ids=seen_ids,
+            excluded_product_ids=(
+                seen_product_ids | combo_product_ids
+            ),
             limit=remaining,
         )
 
         for product in popular:
-            if product.id not in seen_ids:
-                recommendations.append(product)
-                seen_ids.add(product.id)
+
+            if product.id in seen_product_ids:
+                continue
+
+            if product.id in combo_product_ids:
+                continue
+
+            recommendations.append(
+                serialize_product(product)
+            )
+
+            seen_product_ids.add(product.id)
 
             if len(recommendations) >= limit:
                 return recommendations
 
-    # -----------------------------------------------------
-    # 4. FINAL FALLBACK
-    # -----------------------------------------------------
-
+    # ---------------------------------------------------------
+    # 5. Fallback products
+    # ---------------------------------------------------------
     remaining = limit - len(recommendations)
 
     if remaining > 0:
         fallback = get_available_fallback_products(
             restaurant_id=restaurant_id,
-            cart_product_ids=seen_ids,
+            cart_product_ids=(
+                seen_product_ids | combo_product_ids
+            ),
             db=db,
             limit=remaining,
         )
 
         for product in fallback:
-            if product.id not in seen_ids:
-                recommendations.append(product)
-                seen_ids.add(product.id)
+
+            if product.id in seen_product_ids:
+                continue
+
+            if product.id in combo_product_ids:
+                continue
+
+            recommendations.append(
+                serialize_product(product)
+            )
+
+            seen_product_ids.add(product.id)
 
             if len(recommendations) >= limit:
-                return recommendations
+                break
 
     return recommendations
-
 # =========================================================
 # MAIN RECOMMENDATION ENGINE
 # =========================================================
@@ -491,10 +686,14 @@ def get_recommendations(
         )
 
     return {
-        "enabled": True,
-        "strategy": config.strategy,
-        "recommendations": [
+    "enabled": True,
+    "strategy": config.strategy,
+    "recommendations": (
+        products
+        if config.strategy == "mixed"
+        else [
             serialize_product(product)
             for product in products
-        ],
-    }
+        ]
+    ),
+}
