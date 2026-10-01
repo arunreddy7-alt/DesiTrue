@@ -76,6 +76,20 @@ const features = [
   icon: "🎨",
   path: "branding",
 },
+{
+  title: "Recommendation Configuration",
+  description:
+    "Configure which products can recommend other products.",
+  icon: "🤖",
+  path: "recommendations",
+},
+{
+  title: "Combos / Bundles",
+  description:
+    "Create and manage product combos and bundles.",
+  icon: "🎁",
+  path: "combos",
+},
 ];
 
 export default function RestaurantAdminHome() {
@@ -294,7 +308,19 @@ export default function RestaurantAdminHome() {
         `/admin/${restaurantSlug}/branding`
       );
       return;
-}
+    }
+    if (path === "recommendations") {
+      router.push(
+        `/admin/${restaurantSlug}/recommendations`
+      );
+      return;
+    }
+    if (path === "combos") {
+      router.push(
+        `/admin/${restaurantSlug}/combos`
+      );
+      return;
+    }
   };
 
   // =========================================================

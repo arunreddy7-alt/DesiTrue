@@ -130,9 +130,14 @@ class OrderItem(Base):
         nullable=False,
     )
 
-    product_id: Mapped[int] = mapped_column(
+    product_id: Mapped[int | None] = mapped_column(
         ForeignKey("products.id"),
-        nullable=False,
+        nullable=True,
+    )
+
+    combo_id: Mapped[int | None] = mapped_column(
+        ForeignKey("combos.id"),
+        nullable=True,
     )
 
     quantity: Mapped[int] = mapped_column(
@@ -154,3 +159,5 @@ class OrderItem(Base):
     )
 
     product: Mapped["Product"] = relationship()
+
+    combo: Mapped["Combo | None"] = relationship()

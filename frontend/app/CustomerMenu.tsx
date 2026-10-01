@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
 type Product = {
   id: number;
@@ -55,10 +55,35 @@ type Restaurant = {
   is_active: boolean;
 };
 
-type CartItem = {
-  product: Product;
+type ComboItem = {
+  id: number;
+  product_id: number;
   quantity: number;
+  name?: string;
 };
+
+type Combo = {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  description?: string | null;
+  image_url?: string | null;
+  price: number | string;
+  is_active: boolean;
+  items: ComboItem[];
+};
+
+type CartItem =
+  | {
+      type: "product";
+      product: Product;
+      quantity: number;
+    }
+  | {
+      type: "combo";
+      combo: Combo;
+      quantity: number;
+    };
 
 type Customer = {
   id: number;
@@ -70,7 +95,8 @@ type Customer = {
 
 type OrderItem = {
   id?: number;
-  product_id: number;
+  product_id?: number | null;
+  combo_id?: number | null;
   quantity: number;
   unit_price: string | number;
   line_total: string | number;
@@ -199,6 +225,8 @@ const [products, setProducts] =
 
 const [categories, setCategories] =
   useState<Category[]>([]);
+const [combos, setCombos] = useState<Combo[]>([]);
+const [isLoadingCombos, setIsLoadingCombos] = useState(false);
 
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
@@ -413,7 +441,7 @@ const [categories, setCategories] =
       } else if (result.action === "update_quantity") {
         if (result.product_id !== null) {
           const currentItem = cart.find(
-            (item) => item.product.id === result.product_id
+            (item) => item.type === "product" && item.product.id === result.product_id
           );
 
           if (currentItem) {
@@ -720,10 +748,71 @@ const [categories, setCategories] =
 }, [restaurantSlug]);
 
   // =========================================================
+  // LOAD COMBOS
+  // =========================================================
+
+  useEffect(() => {
+    if (!restaurant) {
+      setCombos([]);
+      return;
+    }
+
+    const loadCombos = async () => {
+      try {
+        setIsLoadingCombos(true);
+
+        const response = await fetch(
+          `${API_URL}/api/combos/${restaurant.id}`,
+          { cache: "no-store" },
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to load combos.");
+        }
+
+        const data = await response.json();
+
+        const comboList: Combo[] = (Array.isArray(data) ? data : []).map(
+          (combo: any) => ({
+            id: Number(combo.id ?? combo.combo_id),
+            restaurant_id: combo.restaurant_id,
+            name: combo.name,
+            description: combo.description,
+            image_url: combo.image_url,
+            price: combo.price,
+            is_active: combo.is_active,
+            items: (combo.items || []).map((item: any) => ({
+              id: item.id,
+              product_id: item.product_id,
+              quantity: item.quantity,
+              name:
+                products.find((product) => product.id === item.product_id)?.name ||
+                `Product #${item.product_id}`,
+            })),
+          }),
+        );
+
+        setCombos(comboList);
+      } catch (error) {
+        console.error("Combo loading error:", error);
+        setCombos([]);
+      } finally {
+        setIsLoadingCombos(false);
+      }
+    };
+
+    void loadCombos();
+  }, [restaurant, products]);
+
+  // =========================================================
   // FILTER PRODUCTS
   // =========================================================
 
   const filteredProducts = useMemo(() => {
+  if (selectedCategory === "combos") {
+    return [];
+  }
+
   return products.filter((product) => {
     const matchesCategory =
       selectedCategory === "All" ||
@@ -775,7 +864,11 @@ const [categories, setCategories] =
   const cartTotal = cart.reduce(
     (total, item) =>
       total +
-      Number(item.product.price) * item.quantity,
+      Number(
+        item.type === "combo"
+          ? item.combo.price
+          : item.product.price
+      ) * item.quantity,
     0
   );
 
@@ -795,12 +888,12 @@ const [categories, setCategories] =
   ) => {
     setCart((currentCart) => {
       const existing = currentCart.find(
-        (item) => item.product.id === product.id
+        (item) => item.type === "product" && item.product.id === product.id
       );
 
       if (existing) {
         return currentCart.map((item) =>
-          item.product.id === product.id
+          item.type === "product" && item.product.id === product.id
             ? {
                 ...item,
                 quantity:
@@ -813,7 +906,35 @@ const [categories, setCategories] =
       return [
         ...currentCart,
         {
+          type: "product",
           product,
+          quantity,
+        },
+      ];
+    });
+  };
+
+  const addComboToCart = (combo: Combo, quantity = 1) => {
+    setCart((currentCart) => {
+      const existing = currentCart.find(
+        (item) =>
+          item.type === "combo" &&
+          item.combo.id === combo.id
+      );
+
+      if (existing) {
+        return currentCart.map((item) =>
+          item.type === "combo" && item.combo.id === combo.id
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
+        );
+      }
+
+      return [
+        ...currentCart,
+        {
+          type: "combo",
+          combo,
           quantity,
         },
       ];
@@ -831,12 +952,23 @@ const [categories, setCategories] =
     setCart((currentCart) =>
       currentCart
         .map((item) =>
-          item.product.id === productId
-            ? {
-                ...item,
-                quantity:
-                  item.quantity + change,
-              }
+          item.type === "product" && item.product.id === productId
+            ? { ...item, quantity: item.quantity + change }
+            : item
+        )
+        .filter((item) => item.quantity > 0)
+    );
+  };
+
+  const updateComboQuantity = (
+    comboId: number,
+    change: number
+  ) => {
+    setCart((currentCart) =>
+      currentCart
+        .map((item) =>
+          item.type === "combo" && item.combo.id === comboId
+            ? { ...item, quantity: item.quantity + change }
             : item
         )
         .filter((item) => item.quantity > 0)
@@ -850,7 +982,17 @@ const [categories, setCategories] =
   const removeFromCart = (productId: number) => {
     setCart((currentCart) =>
       currentCart.filter(
-        (item) => item.product.id !== productId
+        (item) =>
+          item.type !== "product" || item.product.id !== productId
+      )
+    );
+  };
+
+  const removeComboFromCart = (comboId: number) => {
+    setCart((currentCart) =>
+      currentCart.filter(
+        (item) =>
+          item.type !== "combo" || item.combo.id !== comboId
       )
     );
   };
@@ -1102,6 +1244,38 @@ const [categories, setCategories] =
       // We are already sending coupon_code here so the
       // frontend is ready for that backend change.
       // =====================================================
+      if (!restaurant) {
+      throw new Error("Restaurant information is not available.");
+  }
+
+if (cart.length === 0) {
+  throw new Error("Your cart is empty.");
+}
+      const items = cart.map((item) => {
+        if (item.type === "combo") {
+          const comboId = Number(item.combo.id);
+
+          if (!Number.isInteger(comboId) || comboId <= 0) {
+            throw new Error("This combo is missing a valid ID. Please refresh and try again.");
+          }
+
+          return {
+            combo_id: comboId,
+            quantity: item.quantity,
+          };
+        }
+
+        const productId = Number(item.product.id);
+
+        if (!Number.isInteger(productId) || productId <= 0) {
+          throw new Error("This product is missing a valid ID. Please refresh and try again.");
+        }
+
+        return {
+          product_id: productId,
+          quantity: item.quantity,
+        };
+      });
 
       const orderResponse =
         await fetch(
@@ -1115,13 +1289,9 @@ const [categories, setCategories] =
             },
 
             body: JSON.stringify({
-  restaurant_id: restaurant?.id,
+  restaurant_id: restaurant.id,
   customer_id: customer.id,
-  items: cart.map((item) => ({
-    product_id: item.product.id,
-    quantity: item.quantity,
-                })
-              ),
+  items,
 
               coupon_code:
                 appliedCoupon,
@@ -1129,17 +1299,32 @@ const [categories, setCategories] =
           }
         );
 
-      if (!orderResponse.ok) {
-        const errorData =
-          await orderResponse
-            .json()
-            .catch(() => null);
+     if (!orderResponse.ok) {
+  const errorData = await orderResponse.json().catch(() => null);
 
-        throw new Error(
-          errorData?.detail ||
-            "Failed to create order."
-        );
-      }
+  console.error("Order creation failed:", {
+    status: orderResponse.status,
+    statusText: orderResponse.statusText,
+    errorData,
+  });
+
+  const detail =
+    typeof errorData?.detail === "string"
+      ? errorData.detail
+      : Array.isArray(errorData?.detail)
+        ? errorData.detail
+            .map((error: any) =>
+              typeof error === "string"
+                ? error
+                : error?.msg || JSON.stringify(error)
+            )
+            .join(", ")
+        : errorData?.detail
+          ? JSON.stringify(errorData.detail)
+          : "Failed to create order.";
+
+  throw new Error(detail);
+}
 
       const order: Order =
         await orderResponse.json();
@@ -1426,25 +1611,23 @@ const [categories, setCategories] =
   // =========================================================
   // ORDER SUMMARY HELPERS
   // =========================================================
+const getProductForOrderItem = (
+  productId: number
+) => {
+  const cartProduct = cart.find(
+    (item) =>
+      item.type === "product" &&
+      item.product.id === productId
+  );
 
-  const getProductForOrderItem = (
-    productId: number
-  ) => {
-    const cartProduct =
-      cart.find(
-        (item) =>
-          item.product.id ===
-          productId
-      );
+  if (cartProduct && cartProduct.type === "product") {
+    return cartProduct.product;
+  }
 
-    if (cartProduct)
-      return cartProduct.product;
-
-    return products.find(
-      (product) =>
-        product.id === productId
-    );
-  };
+  return products.find(
+    (product) => product.id === productId
+  );
+};
 
   // =========================================================
   // RENDER
@@ -1553,15 +1736,20 @@ const [categories, setCategories] =
                   (item) => {
 
                     const product =
-                      getProductForOrderItem(
-                        item.product_id
-                      );
+                      item.product_id != null
+                        ? getProductForOrderItem(item.product_id)
+                        : undefined;
+
+                    const combo =
+                      item.combo_id != null
+                        ? combos.find((candidate) => candidate.id === item.combo_id)
+                        : undefined;
 
                     return (
                       <div
                         key={
                           item.id ??
-                          `${item.product_id}-${item.quantity}`
+                          `${item.combo_id ?? item.product_id}-${item.quantity}`
                         }
                         className="flex items-center justify-between gap-4"
                       >
@@ -1570,19 +1758,15 @@ const [categories, setCategories] =
 
                           <div className="h-14 w-14 overflow-hidden rounded-xl bg-zinc-100">
 
-                            {product?.image_url ? (
+                            {product?.image_url || combo?.image_url ? (
                               <img
-                                src={
-                                  product.image_url
-                                }
-                                alt={
-                                  product.name
-                                }
+                                src={product?.image_url || combo?.image_url || ""}
+                                alt={product?.name || combo?.name || "Order item"}
                                 className="h-full w-full object-cover"
                               />
                             ) : (
                               <div className="flex h-full w-full items-center justify-center text-2xl">
-                                🍔
+                                {combo ? "🎁" : "🍔"}
                               </div>
                             )}
 
@@ -1592,7 +1776,10 @@ const [categories, setCategories] =
 
                             <p className="font-semibold">
                               {product?.name ||
-                                `Product #${item.product_id}`}
+                                combo?.name ||
+                                (item.product_id != null
+                                  ? `Product #${item.product_id}`
+                                  : `Combo #${item.combo_id}`)}
                             </p>
 
                             <p className="text-sm text-zinc-500">
@@ -1972,6 +2159,7 @@ const [categories, setCategories] =
     id: String(category.id),
     name: category.name,
   })),
+  { id: "combos", name: "Combos" },
 ].map((category) => (
   <button
     key={category.id}
@@ -2008,8 +2196,89 @@ const [categories, setCategories] =
                 {productsError}
               </div>
 
-            ) : filteredProducts.length ===
-              0 ? (
+            ) : selectedCategory === "combos" ? (
+
+              isLoadingCombos ? (
+                <div className="py-20 text-center text-sm text-zinc-500">
+                  Loading combos...
+                </div>
+              ) : combos.length === 0 ? (
+                <div className="py-20 text-center">
+                  <div className="text-5xl">🎁</div>
+                  <h2 className="mt-4 text-xl font-bold">No combos available</h2>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    Check back later for available combos.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {combos.map((combo) => (
+                    <div
+                      key={`combo-${combo.id}`}
+                      className="overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                    >
+                      <div className="aspect-[4/3] overflow-hidden bg-zinc-100">
+                        {combo.image_url ? (
+                          <img
+                            src={combo.image_url}
+                            alt={combo.name}
+                            className="h-full w-full object-cover transition duration-300 hover:scale-105"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-6xl">
+                            🎁
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-5">
+                        <div className="flex items-start justify-between gap-3">
+                          <h2 className="font-bold">{combo.name}</h2>
+                          <span className="shrink-0 font-black">{money(combo.price)}</span>
+                        </div>
+
+                        {combo.description && (
+                          <p className="mt-2 line-clamp-2 text-sm leading-5 text-zinc-500">
+                            {combo.description}
+                          </p>
+                        )}
+
+                        {combo.items.length > 0 && (
+                          <div className="mt-4 rounded-2xl bg-zinc-50 p-4">
+                            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-zinc-400">
+                              Includes
+                            </p>
+                            <div className="space-y-2">
+                              {combo.items.map((item) => (
+                                <div
+                                  key={`${combo.id}-${item.product_id}`}
+                                  className="flex justify-between gap-3 text-sm"
+                                >
+                                  <span className="truncate">{item.name}</span>
+                                  <span className="shrink-0 font-semibold">× {item.quantity}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            addComboToCart(combo);
+                            setIsCartOpen(true);
+                          }}
+                          className="mt-5 w-full rounded-2xl bg-zinc-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-zinc-800"
+                        >
+                          Add Combo
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+
+            ) : filteredProducts.length === 0 ? (
 
               <div className="py-20 text-center">
 
@@ -2494,127 +2763,88 @@ const [categories, setCategories] =
 
                 <div className="space-y-5">
 
-                  {cart.map(
-                    (item) => (
-
-                      <div
-                        key={
-                          item.product.id
-                        }
-                        className="flex gap-3"
-                      >
-
-                        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-zinc-100">
-
-                          {item.product.image_url ? (
-
+                  {cart.map((item) => (
+                    <div
+                      key={
+                        item.type === "combo"
+                          ? `combo-${item.combo.id}`
+                          : `product-${item.product.id}`
+                      }
+                      className="flex gap-3"
+                    >
+                      <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-zinc-100">
+                        {item.type === "combo" ? (
+                          item.combo.image_url ? (
                             <img
-                              src={
-                                item
-                                  .product
-                                  .image_url
-                              }
-                              alt={
-                                item
-                                  .product
-                                  .name
-                              }
+                              src={item.combo.image_url}
+                              alt={item.combo.name}
                               className="h-full w-full object-cover"
                             />
-
                           ) : (
-
-                            <div className="flex h-full w-full items-center justify-center text-3xl">
-                              🍔
-                            </div>
-
-                          )}
-
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-
-                          <div className="flex justify-between gap-3">
-
-                            <h3 className="truncate font-bold">
-                              {
-                                item
-                                  .product
-                                  .name
-                              }
-                            </h3>
-
-                            <button
-                              onClick={() =>
-                                removeFromCart(
-                                  item
-                                    .product
-                                    .id
-                                )
-                              }
-                              className="text-xs text-zinc-400 hover:text-red-500"
-                            >
-                              Remove
-                            </button>
-
-                          </div>
-
-                          <p className="mt-1 text-sm font-semibold">
-                            {money(
-                              item
-                                .product
-                                .price
-                            )}
-                          </p>
-
-                          <div className="mt-3 flex items-center gap-3">
-
-                            <button
-                              onClick={() =>
-                                updateCartQuantity(
-                                  item
-                                    .product
-                                    .id,
-                                  -1
-                                )
-                              }
-                              className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100"
-                            >
-                              <Minus
-                                size={14}
-                              />
-                            </button>
-
-                            <span className="w-4 text-center text-sm font-bold">
-                              {
-                                item.quantity
-                              }
-                            </span>
-
-                            <button
-                              onClick={() =>
-                                updateCartQuantity(
-                                  item
-                                    .product
-                                    .id,
-                                  1
-                                )
-                              }
-                              className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100"
-                            >
-                              <Plus
-                                size={14}
-                              />
-                            </button>
-
-                          </div>
-
-                        </div>
-
+                            <div className="flex h-full w-full items-center justify-center text-3xl">🎁</div>
+                          )
+                        ) : item.product.image_url ? (
+                          <img
+                            src={item.product.image_url}
+                            alt={item.product.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-3xl">🍔</div>
+                        )}
                       </div>
 
-                    )
-                  )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex justify-between gap-3">
+                          <h3 className="truncate font-bold">
+                            {item.type === "combo" ? item.combo.name : item.product.name}
+                          </h3>
+                          <button
+                            onClick={() =>
+                              item.type === "combo"
+                                ? removeComboFromCart(item.combo.id)
+                                : removeFromCart(item.product.id)
+                            }
+                            className="text-xs text-zinc-400 hover:text-red-500"
+                          >
+                            Remove
+                          </button>
+                        </div>
+
+                        <p className="mt-1 text-sm font-semibold">
+                          {money(item.type === "combo" ? item.combo.price : item.product.price)}
+                        </p>
+
+                        <div className="mt-3 flex items-center gap-3">
+                          <button
+                            onClick={() =>
+                              item.type === "combo"
+                                ? updateComboQuantity(item.combo.id, -1)
+                                : updateCartQuantity(item.product.id, -1)
+                            }
+                            className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100"
+                          >
+                            <Minus size={14} />
+                          </button>
+
+                          <span className="w-4 text-center text-sm font-bold">
+                            {item.quantity}
+                          </span>
+
+                          <button
+                            onClick={() =>
+                              item.type === "combo"
+                                ? updateComboQuantity(item.combo.id, 1)
+                                : updateCartQuantity(item.product.id, 1)
+                            }
+                            className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100"
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
 
                 </div>
 
@@ -2790,43 +3020,27 @@ const [categories, setCategories] =
 
                 <div className="space-y-3 rounded-2xl bg-zinc-50 p-4">
 
-                  {cart.map(
-                    (item) => (
-
-                      <div
-                        key={
-                          item.product.id
-                        }
-                        className="flex justify-between gap-4 text-sm"
-                      >
-
-                        <span>
-                          {
-                            item
-                              .product
-                              .name
-                          }{" "}
-                          ×{" "}
-                          {
+                  {cart.map((item) => (
+                    <div
+                      key={
+                        item.type === "combo"
+                          ? `checkout-combo-${item.combo.id}`
+                          : `checkout-product-${item.product.id}`
+                      }
+                      className="flex justify-between gap-4 text-sm"
+                    >
+                      <span>
+                        {item.type === "combo" ? item.combo.name : item.product.name}{" "}
+                        × {item.quantity}
+                      </span>
+                      <span className="font-semibold">
+                        {money(
+                          Number(item.type === "combo" ? item.combo.price : item.product.price) *
                             item.quantity
-                          }
-                        </span>
-
-                        <span className="font-semibold">
-                          {money(
-                            Number(
-                              item
-                                .product
-                                .price
-                            ) *
-                              item.quantity
-                          )}
-                        </span>
-
-                      </div>
-
-                    )
-                  )}
+                        )}
+                      </span>
+                    </div>
+                  ))}
 
                   {/* SUBTOTAL */}
 

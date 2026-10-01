@@ -14,6 +14,7 @@ from app.models import (
     Product,
     Restaurant,
     User,
+    Combo,
 )
 from app.schemas.order import OrderCreate, OrderResponse
 from app.services.whatsapp_service import (
@@ -85,41 +86,84 @@ def create_order(
 
     subtotal = Decimal("0.00")
     order_items = []
-
     for item in order_data.items:
-
-        product = (
-            db.query(Product)
-            .filter(
-                Product.id == item.product_id,
-                Product.restaurant_id == order_data.restaurant_id,
-                Product.is_available == True,
+        if item.product_id is not None:
+            product = (
+                db.query(Product)
+                .filter(
+                    Product.id == item.product_id,
+                    Product.restaurant_id == order_data.restaurant_id,
+                    Product.is_available == True,
+                )
+                .first()
             )
-            .first()
-        )
 
-        if not product:
+            if not product:
+                raise HTTPException(
+                    status_code=404,
+                    detail=(
+                        f"Product {item.product_id} "
+                        f"not found or unavailable."
+                    ),
+                )
+
+            unit_price = Decimal(str(product.price))
+            line_total = unit_price * item.quantity
+
+            subtotal += line_total
+
+            order_items.append(
+                {
+                    "product": product,
+                    "combo": None,
+                    "quantity": item.quantity,
+                    "unit_price": unit_price,
+                    "line_total": line_total,
+                }
+            )
+        elif item.combo_id is not None:
+            combo = (
+                db.query(Combo)
+                .filter(
+                    Combo.id == item.combo_id,
+                    Combo.restaurant_id == order_data.restaurant_id,
+                    Combo.is_active == True,
+                )
+                .first()
+            )
+
+            if not combo:
+                raise HTTPException(
+                    status_code=404,
+                    detail=(
+                        f"Combo {item.combo_id} "
+                        f"not found or unavailable."
+                    ),
+                )
+
+            unit_price = Decimal(str(combo.price))
+            line_total = unit_price * item.quantity
+
+            subtotal += line_total
+
+            order_items.append(
+                {
+                    "product": None,
+                    "combo": combo,
+                    "quantity": item.quantity,
+                    "unit_price": unit_price,
+                    "line_total": line_total,
+                }
+            )
+        else:
             raise HTTPException(
-                status_code=404,
+                status_code=400,
                 detail=(
-                    f"Product {item.product_id} "
-                    f"not found or unavailable."
+                    "Each order item must contain either "
+                    "product_id or combo_id."
                 ),
             )
 
-        unit_price = Decimal(str(product.price))
-        line_total = unit_price * item.quantity
-
-        subtotal += line_total
-
-        order_items.append(
-            {
-                "product": product,
-                "quantity": item.quantity,
-                "unit_price": unit_price,
-                "line_total": line_total,
-            }
-        )
 
     # -----------------------------------------------------
     # COUPON
@@ -277,7 +321,16 @@ def create_order(
 
         order_item = OrderItem(
             order_id=order.id,
-            product_id=item["product"].id,
+            product_id=(
+                item["product"].id
+                if item["product"] is not None
+                else None
+            ),
+            combo_id=(
+                item["combo"].id
+                if item["combo"] is not None
+                else None
+            ),
             quantity=item["quantity"],
             unit_price=item["unit_price"],
             line_total=item["line_total"],
