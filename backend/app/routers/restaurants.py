@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException,UploadFile,File
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.core.dependencies import require_owner, require_restaurant_access
+from pathlib import Path
+from uuid import uuid4
 
 from app.core.database import get_db
 from app.models import Restaurant
@@ -18,12 +20,18 @@ router = APIRouter(
 # ---------------------------------------------------------
 # Schemas
 # ---------------------------------------------------------
-
 class RestaurantCreate(BaseModel):
     name: str
     slug: str
     description: str | None = None
     logo_url: str | None = None
+    banner_url: str | None = None
+    tagline: str | None = None
+
+    primary_color: str = "#18181B"
+    secondary_color: str = "#FAF9F6"
+    accent_color: str = "#F97316"
+
     phone: str | None = None
     address: str | None = None
     currency: str = "INR"
@@ -35,7 +43,15 @@ class RestaurantUpdate(BaseModel):
     name: str | None = None
     slug: str | None = None
     description: str | None = None
+
     logo_url: str | None = None
+    banner_url: str | None = None
+    tagline: str | None = None
+
+    primary_color: str | None = None
+    secondary_color: str | None = None
+    accent_color: str | None = None
+
     phone: str | None = None
     address: str | None = None
     currency: str | None = None
@@ -57,7 +73,15 @@ class RestaurantResponse(BaseModel):
     name: str
     slug: str
     description: str | None
+
     logo_url: str | None
+    banner_url: str | None
+    tagline: str | None
+
+    primary_color: str
+    secondary_color: str
+    accent_color: str
+
     phone: str | None
     address: str | None
     currency: str
@@ -125,15 +149,23 @@ def create_restaurant(
     # -----------------------------
 
     restaurant = Restaurant(
-        name=restaurant_data.name,
-        slug=restaurant_data.slug,
-        description=restaurant_data.description,
-        logo_url=restaurant_data.logo_url,
-        phone=restaurant_data.phone,
-        address=restaurant_data.address,
-        currency=restaurant_data.currency,
-        tax_percentage=restaurant_data.tax_percentage,
-        is_active=restaurant_data.is_active,
+            name=restaurant_data.name,
+            slug=restaurant_data.slug,
+            description=restaurant_data.description,
+
+            logo_url=restaurant_data.logo_url,
+            banner_url=restaurant_data.banner_url,
+            tagline=restaurant_data.tagline,
+
+            primary_color=restaurant_data.primary_color,
+            secondary_color=restaurant_data.secondary_color,
+            accent_color=restaurant_data.accent_color,
+
+            phone=restaurant_data.phone,
+            address=restaurant_data.address,
+            currency=restaurant_data.currency,
+            tax_percentage=restaurant_data.tax_percentage,
+            is_active=restaurant_data.is_active,
     )
 
     db.add(restaurant)
@@ -260,3 +292,100 @@ def update_restaurant(
     db.refresh(restaurant)
 
     return restaurant
+# ---------------------------------------------------------
+# Update restaurant status
+# ---------------------------------------------------------
+
+@router.patch(
+    "/{restaurant_id}/status",
+)
+def update_restaurant_status(
+    restaurant_id: int,
+    is_active: bool,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_owner),
+):
+    restaurant = (
+        db.query(Restaurant)
+        .filter(Restaurant.id == restaurant_id)
+        .first()
+    )
+
+    if not restaurant:
+        raise HTTPException(
+            status_code=404,
+            detail="Restaurant not found.",
+        )
+
+    restaurant.is_active = is_active
+
+    db.commit()
+    db.refresh(restaurant)
+
+    return {
+        "message": (
+            "Restaurant activated successfully."
+            if is_active
+            else "Restaurant deactivated successfully."
+        ),
+        "restaurant_id": restaurant.id,
+        "is_active": restaurant.is_active,
+    }
+@router.post("/{restaurant_id}/branding/upload")
+async def upload_branding_image(
+    restaurant_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user=Depends(require_restaurant_access),
+):
+    restaurant = (
+        db.query(Restaurant)
+        .filter(Restaurant.id == restaurant_id)
+        .first()
+    )
+
+    if not restaurant:
+        raise HTTPException(
+            status_code=404,
+            detail="Restaurant not found.",
+        )
+
+    allowed_types = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+    }
+
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail="Only JPG, PNG and WebP images are allowed.",
+        )
+
+    contents = await file.read()
+
+    # 5 MB limit
+    if len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(
+            status_code=400,
+            detail="Image must be smaller than 5 MB.",
+        )
+
+    upload_dir = Path("uploads") / "restaurants" / str(restaurant_id)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    extension = allowed_types[file.content_type]
+
+    filename = f"{uuid4().hex}{extension}"
+
+    file_path = upload_dir / filename
+
+    with open(file_path, "wb") as buffer:
+        buffer.write(contents)
+
+    image_url = f"/uploads/restaurants/{restaurant_id}/{filename}"
+
+    return {
+        "url": image_url,
+        "filename": filename,
+    }

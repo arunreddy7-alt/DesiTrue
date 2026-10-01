@@ -7,6 +7,8 @@ from app.models.coupon import Coupon
 from app.models.campaign import Campaign
 from app.models.campaign_delivery import CampaignDelivery
 from app.models.user import User
+from app.models.recommendation import RecommendationConfig
+from app.models.combo import Combo, ComboItem
 
 
 __all__ = [
@@ -22,4 +24,7 @@ __all__ = [
     "Campaign",
     "CampaignDelivery",
     "User",
+    "RecommendationConfig",
+    "Combo",
+    "ComboItem",
 ]

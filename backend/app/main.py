@@ -9,6 +9,7 @@ load_dotenv()
 from fastapi import FastAPI
 
 from app.routers.restaurants import router as restaurants_router
+from app.routers.recommendations import router as recommendations_router
 from app.routers.campaigns import router as campaigns_router
 from app.routers.categories import router as categories_router
 from app.routers.coupons import router as coupons_router
@@ -23,6 +24,7 @@ from app.routers.uploads import router as uploads_router
 from app.routers.auth import router as auth_router
 from app.routers.users import router as users_router
 from app.routers.voice import router as voice_router
+from app.routers.combos import router as combos_router
 
 from app.core.database import engine
 
@@ -60,10 +62,13 @@ app.include_router(coupons_router)
 app.include_router(campaigns_router)
 app.include_router(categories_router)
 app.include_router(restaurants_router)
+app.include_router(recommendations_router)
 app.include_router(uploads_router)
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(voice_router)
+app.include_router(combos_router)
+
 
 
 # ============================================================

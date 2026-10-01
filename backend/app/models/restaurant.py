@@ -1,11 +1,15 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
+if TYPE_CHECKING:
+    from app.models.recommendation import RecommendationConfig
+    from app.models.combo import Combo
 
 class Restaurant(Base):
     __tablename__ = "restaurants"
@@ -37,6 +41,34 @@ class Restaurant(Base):
         nullable=True,
     )
 
+    banner_url: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
+    tagline: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    primary_color: Mapped[str] = mapped_column(
+        String(20),
+        default="#18181B",
+        nullable=False,
+    )
+
+    secondary_color: Mapped[str] = mapped_column(
+        String(20),
+        default="#FAF9F6",
+        nullable=False,
+    )
+
+    accent_color: Mapped[str] = mapped_column(
+        String(20),
+        default="#F97316",
+        nullable=False,
+    )
+
     phone: Mapped[str | None] = mapped_column(
         String(20),
         nullable=True,
@@ -61,6 +93,17 @@ class Restaurant(Base):
     coupons: Mapped[list["Coupon"]] = relationship(
     "Coupon",
     back_populates="restaurant",
+)
+    recommendation_config: Mapped["RecommendationConfig | None"] = relationship(
+            "RecommendationConfig",
+            back_populates="restaurant",
+            uselist=False,
+            cascade="all, delete-orphan",
+    )
+    combos: Mapped[list["Combo"]] = relationship(
+        "Combo",
+        back_populates="restaurant",
+        cascade="all, delete-orphan",
 )
 
     is_active: Mapped[bool] = mapped_column(

@@ -11,6 +11,13 @@ type Restaurant = {
   slug: string;
   description: string | null;
   logo_url: string | null;
+
+  banner_url: string | null;
+  tagline: string | null;
+  primary_color: string;
+  secondary_color: string;
+  accent_color: string;
+
   phone: string | null;
   address: string | null;
   currency: string;
@@ -62,6 +69,13 @@ const features = [
     icon: "📢",
     path: "campaigns",
   },
+  {
+  title: "Branding",
+  description:
+    "Customize your restaurant logo, banner, tagline and brand colors.",
+  icon: "🎨",
+  path: "branding",
+},
 ];
 
 export default function RestaurantAdminHome() {
@@ -275,6 +289,12 @@ export default function RestaurantAdminHome() {
         `/admin/campaigns?restaurant=${restaurantSlug}`
       );
     }
+    if (path === "branding") {
+      router.push(
+        `/admin/${restaurantSlug}/branding`
+      );
+      return;
+}
   };
 
   // =========================================================
