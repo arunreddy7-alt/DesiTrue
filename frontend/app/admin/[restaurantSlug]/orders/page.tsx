@@ -26,11 +26,14 @@ type Order = {
   total: string;
   payment_status: string;
   items: {
-    product_id: number;
-    quantity: number;
-    unit_price: string;
-    line_total: string;
-  }[];
+  product_id: number | null;
+  combo_id: number | null;
+  product_name: string | null;
+  combo_name: string | null;
+  quantity: number;
+  unit_price: string;
+  line_total: string;
+}[];
 };
 
 type Feedback = {
@@ -868,38 +871,30 @@ const updateStatus = async (
 
                       <div className="space-y-2">
 
-                        {order.items.map(
-                          (item) => (
-
-                            <div
-                              key={`${order.id}-${item.product_id}`}
+                        {order.items.map((item, index) => (
+                          <div
+                              key={`${item.product_id ?? "combo"}-${item.combo_id ?? index}`}
                               className="flex items-center justify-between text-sm"
-                            >
-
+                          >
                               <div className="text-gray-600">
+                                  {item.product_name
+                                    ? item.product_name
+                                    : item.combo_name
+                                    ? item.combo_name
+                                    : item.product_id
+                                    ? `Product #${item.product_id}`
+                                    : `Combo #${item.combo_id}`}
 
-                                Product #
-                                {item.product_id}
+      <span className="text-gray-400 ml-2">
+        × {item.quantity}
+      </span>
+    </div>
 
-                                <span className="text-gray-400 ml-2">
-                                  ×{" "}
-                                  {item.quantity}
-                                </span>
-
-                              </div>
-
-                              <div className="font-medium text-gray-800">
-                                ₹
-                                {
-                                  item.line_total
-                                }
-                              </div>
-
-                            </div>
-
-                          )
-                        )}
-
+    <div className="font-medium text-gray-800">
+      ₹{item.line_total}
+    </div>
+  </div>
+))}
                       </div>
 
                     </div>

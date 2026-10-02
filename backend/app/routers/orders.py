@@ -21,6 +21,7 @@ from app.services.whatsapp_service import (
     send_feedback_request_whatsapp,
     send_order_status_whatsapp,
 )
+from app.schemas import order
 
 
 router = APIRouter(
@@ -28,6 +29,38 @@ router = APIRouter(
     tags=["Orders"],
 )
 
+def serialize_order(order: Order):
+    return {
+        "id": order.id,
+        "restaurant_id": order.restaurant_id,
+        "customer_id": order.customer_id,
+        "coupon_id": order.coupon_id,
+        "status": order.status,
+        "subtotal": order.subtotal,
+        "discount": order.discount,
+        "total": order.total,
+        "payment_status": order.payment_status,
+        "items": [
+            {
+                "product_id": item.product_id,
+                "combo_id": item.combo_id,
+                "product_name": (
+                    item.product.name
+                    if item.product is not None
+                    else None
+                ),
+                "combo_name": (
+                    item.combo.name
+                    if item.combo is not None
+                    else None
+                ),
+                "quantity": item.quantity,
+                "unit_price": item.unit_price,
+                "line_total": item.line_total,
+            }
+            for item in order.items
+        ],
+    }
 
 # ---------------------------------------------------------
 # CREATE ORDER
@@ -341,7 +374,7 @@ def create_order(
     db.commit()
     db.refresh(order)
 
-    return order
+    return serialize_order(order)
 
 
 # ---------------------------------------------------------
@@ -365,7 +398,7 @@ def get_order(
             detail="Order not found.",
         )
 
-    return order
+    return serialize_order(order)
 
 
 # ---------------------------------------------------------
@@ -423,9 +456,11 @@ def get_orders(
             Order.restaurant_id == restaurant_id
         )
 
-    return query.order_by(
+    orders = query.order_by(
         Order.created_at.desc()
     ).all()
+
+    return [serialize_order(order) for order in orders]
 
 
 # ---------------------------------------------------------
@@ -509,7 +544,7 @@ def update_order_status(
             order=order,
         )
 
-    db.commit()
+    db.commit() 
     db.refresh(order)
 
-    return order
+    return serialize_order(order)

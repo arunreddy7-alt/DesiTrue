@@ -28,6 +28,8 @@ class OrderCreate(BaseModel):
 class OrderItemResponse(BaseModel):
     product_id: int | None = None
     combo_id: int | None = None
+    product_name: str | None = None
+    combo_name: str | None = None
     quantity: int
     unit_price: Decimal
     line_total: Decimal
