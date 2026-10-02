@@ -375,13 +375,20 @@ export default function RestaurantAdminHome() {
   // =========================================================
 
   return (
-    <main className="min-h-screen bg-gray-100">
+    <main
+      className="min-h-screen bg-gray-100"
+      style={{
+        "--brand-primary": restaurant.primary_color,
+        "--brand-secondary": restaurant.secondary_color,
+        "--brand-accent": restaurant.accent_color,
+      } as React.CSSProperties}
+    >
 
       {/* =================================================== */}
       {/* HEADER */}
       {/* =================================================== */}
 
-      <header className="sticky top-0 z-50 bg-black px-6 py-5 text-white shadow-lg">
+      <header className="sticky top-0 z-50 px-6 py-5 text-white shadow-lg" style={{ backgroundColor: "var(--brand-primary)" }}>
 
         <div className="mx-auto max-w-7xl">
 
@@ -397,8 +404,8 @@ export default function RestaurantAdminHome() {
                 {restaurant.name}
               </h1>
 
-              <p className="mt-1 text-sm text-gray-400">
-                Restaurant operations & automation
+              <p className="mt-1 text-sm text-gray-300">
+                {restaurant.tagline || "Restaurant operations & automation"}
               </p>
 
             </div>
@@ -420,7 +427,8 @@ export default function RestaurantAdminHome() {
                     `/admin/${restaurantSlug}/orders`
                   );
                 }}
-                className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-gray-200"
+                className="rounded-lg px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+                style={{ backgroundColor: "var(--brand-accent)" }}
               >
                 Orders
               </button>

@@ -589,13 +589,20 @@ export default function RestaurantBrandingPage() {
   // =========================================================
 
   return (
-    <main className="min-h-screen bg-gray-100">
+    <main
+      className="min-h-screen bg-gray-100"
+      style={{
+        "--brand-primary": primaryColor,
+        "--brand-secondary": secondaryColor,
+        "--brand-accent": accentColor,
+      } as React.CSSProperties}
+    >
 
       {/* =================================================== */}
       {/* HEADER */}
       {/* =================================================== */}
 
-      <header className="sticky top-0 z-50 bg-black px-6 py-5 text-white shadow-lg">
+      <header className="sticky top-0 z-50 px-6 py-5 text-white shadow-lg" style={{ backgroundColor: primaryColor }}>
 
         <div className="mx-auto max-w-7xl">
 
@@ -611,8 +618,8 @@ export default function RestaurantBrandingPage() {
                 {restaurant.name}
               </h1>
 
-              <p className="mt-1 text-sm text-gray-400">
-                Branding & appearance
+              <p className="mt-1 text-sm text-gray-300">
+                {tagline || "Branding & appearance"}
               </p>
 
             </div>

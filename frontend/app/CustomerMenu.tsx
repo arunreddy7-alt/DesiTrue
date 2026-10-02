@@ -48,6 +48,11 @@ type Restaurant = {
   slug: string;
   description: string | null;
   logo_url: string | null;
+  banner_url: string | null;
+  tagline: string | null;
+  primary_color: string;
+  secondary_color: string;
+  accent_color: string;
   phone: string | null;
   address: string | null;
   currency: string;
@@ -207,6 +212,14 @@ function money(value: number | string) {
 function normalizeStatus(status: string) {
   if (status === "pending") return "confirmed";
   return status;
+}
+
+function imageUrl(imagePath: string | null | undefined) {
+  if (!imagePath) return null;
+  if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
+    return imagePath;
+  }
+  return `${API_URL}${imagePath}`;
 }
 
 export default function Home() {
@@ -1633,14 +1646,26 @@ const getProductForOrderItem = (
   // RENDER
   // =========================================================
 
+  const brandStyle = {
+    "--brand-primary": restaurant?.primary_color || "#18181B",
+    "--brand-secondary": restaurant?.secondary_color || "#FAF9F6",
+    "--brand-accent": restaurant?.accent_color || "#F97316",
+  } as React.CSSProperties;
+
   return (
-    <main className="min-h-screen bg-[#faf9f6] text-zinc-900">
+    <main
+      className="min-h-screen text-zinc-900"
+      style={{ ...brandStyle, backgroundColor: "var(--brand-secondary)" }}
+    >
 
       {/* ================================================== */}
       {/* HEADER */}
       {/* ================================================== */}
 
-      <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/95 backdrop-blur">
+      <header
+        className="sticky top-0 z-40 border-b bg-white/95 backdrop-blur"
+        style={{ borderColor: "color-mix(in srgb, var(--brand-primary) 15%, white)" }}
+      >
 
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
 
@@ -1648,12 +1673,18 @@ const getProductForOrderItem = (
             onClick={backToMenu}
             className="text-left"
           >
-            <div className="text-2xl font-black tracking-tight">
-  {restaurant?.name || "Loading..."}
-</div>
-
-            <div className="text-xs text-zinc-500">
-              Order. Enjoy. Share.
+            <div className="flex items-center gap-3">
+              {imageUrl(restaurant?.logo_url) ? (
+                <img src={imageUrl(restaurant?.logo_url) || ""} alt="" className="h-10 w-10 rounded-xl object-cover" />
+              ) : null}
+              <div>
+                <div className="text-2xl font-black tracking-tight" style={{ color: "var(--brand-primary)" }}>
+                  {restaurant?.name || "Loading..."}
+                </div>
+                <div className="text-xs text-zinc-500">
+                  {restaurant?.tagline || "Order. Enjoy. Share."}
+                </div>
+              </div>
             </div>
           </button>
 
@@ -1662,12 +1693,13 @@ const getProductForOrderItem = (
             onClick={() =>
               setIsCartOpen(true)
             }
-            className="relative flex h-11 w-11 items-center justify-center rounded-full bg-zinc-900 text-white transition hover:bg-zinc-800"
+            className="relative flex h-11 w-11 items-center justify-center rounded-full text-white transition hover:opacity-90"
+            style={{ backgroundColor: "var(--brand-primary)" }}
           >
             <ShoppingBag size={20} />
 
             {cartCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold">
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold" style={{ backgroundColor: "var(--brand-accent)" }}>
                 {cartCount}
               </span>
             )}
@@ -1676,7 +1708,8 @@ const getProductForOrderItem = (
           <button
             onClick={startVoiceSession}
             disabled={!restaurant}
-            className="ml-2 flex h-11 w-11 items-center justify-center rounded-full bg-orange-500 text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="ml-2 flex h-11 w-11 items-center justify-center rounded-full text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ backgroundColor: "var(--brand-accent)" }}
             aria-label="Start voice ordering"
           >
             <Mic size={20} />
@@ -2106,9 +2139,13 @@ const getProductForOrderItem = (
 
           <section className="mx-auto max-w-7xl px-4 pb-5 pt-8 sm:px-6">
 
+            {imageUrl(restaurant?.banner_url) ? (
+              <img src={imageUrl(restaurant?.banner_url) || ""} alt="" className="mb-8 h-48 w-full rounded-3xl object-cover sm:h-64" />
+            ) : null}
+
             <div className="mb-7">
 
-              <p className="text-sm font-semibold text-orange-600">
+              <p className="text-sm font-semibold" style={{ color: "var(--brand-accent)" }}>
   Welcome to {restaurant?.name || "our kitchen"}
 </p>
 
