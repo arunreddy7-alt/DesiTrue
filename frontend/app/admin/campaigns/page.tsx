@@ -370,6 +370,63 @@ export default function CampaignsPage() {
   };
 
   // ---------------------------------------------------------
+  // SEND CAMPAIGN THROUGH WHATSAPP
+  // ---------------------------------------------------------
+
+  const sendCampaign = async (
+    campaignId: number
+  ) => {
+    const confirmed = window.confirm(
+      "Send this campaign to all eligible WhatsApp customers?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setCampaignAction(campaignId);
+
+      const response = await fetch(
+        `${API_URL}/api/campaigns/${campaignId}/send`,
+        {
+          method: "POST",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail ||
+            "Failed to send campaign through WhatsApp."
+        );
+      }
+
+      await fetchCampaigns();
+
+      alert(
+        `WhatsApp campaign sent to ${data.messages_sent} customer${
+          data.messages_sent === 1 ? "" : "s"
+        }. ${data.messages_skipped} skipped.`
+      );
+    } catch (error) {
+      console.error(
+        "SEND CAMPAIGN ERROR:",
+        error
+      );
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to send campaign through WhatsApp."
+      );
+    } finally {
+      setCampaignAction(null);
+    }
+  };
+
+  // ---------------------------------------------------------
   // DELETE CAMPAIGN
   // ---------------------------------------------------------
 
@@ -1189,6 +1246,27 @@ export default function CampaignsPage() {
                             className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"
                           >
                             Activate
+                          </button>
+                        )}
+
+                        {campaign.status !==
+                          "completed" && (
+                          <button
+                            onClick={() =>
+                              sendCampaign(
+                                campaign.id
+                              )
+                            }
+                            disabled={
+                              campaignAction ===
+                              campaign.id
+                            }
+                            className="rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                          >
+                            {campaignAction ===
+                            campaign.id
+                              ? "Sending..."
+                              : "Send WhatsApp"}
                           </button>
                         )}
 

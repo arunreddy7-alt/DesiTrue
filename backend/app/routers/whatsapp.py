@@ -370,6 +370,7 @@ def get_whatsapp_messages(
             "phone": message.phone,
             "message_type": message.message_type,
             "message": message.message,
+            "media_url": message.media_url,
             "status": message.status,
             "created_at": message.created_at,
         }
@@ -406,6 +407,7 @@ def get_customer_whatsapp_messages(
             "phone": message.phone,
             "message_type": message.message_type,
             "message": message.message,
+            "media_url": message.media_url,
             "status": message.status,
             "created_at": message.created_at,
         }
@@ -442,6 +444,7 @@ def get_order_whatsapp_messages(
             "phone": message.phone,
             "message_type": message.message_type,
             "message": message.message,
+            "media_url": message.media_url,
             "status": message.status,
             "created_at": message.created_at,
         }
@@ -540,6 +543,7 @@ def create_incoming_whatsapp_message(
         "phone": whatsapp_message.phone,
         "message_type": whatsapp_message.message_type,
         "message": whatsapp_message.message,
+        "media_url": whatsapp_message.media_url,
         "status": whatsapp_message.status,
         "created_at": whatsapp_message.created_at,
     }

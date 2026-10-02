@@ -250,10 +250,29 @@ def send_campaign_whatsapp(
         return None
 
     # -----------------------------------------------------
-    # Campaign message
+    # Campaign message and optional coupon offer
     # -----------------------------------------------------
 
     message = campaign.message
+    coupon = campaign.coupon
+
+    if coupon:
+        if coupon.discount_type == "percentage":
+            discount = f"{coupon.discount_value:g}% off"
+        else:
+            discount = f"${coupon.discount_value:g} off"
+
+        coupon_message = (
+            "\n\n"
+            f"Use code {coupon.code} for {discount}."
+        )
+
+        if coupon.minimum_order:
+            coupon_message += (
+                f" Minimum order: ${coupon.minimum_order:g}."
+            )
+
+        message += coupon_message
 
     # -----------------------------------------------------
     # Optional campaign image
